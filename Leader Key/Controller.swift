@@ -121,6 +121,18 @@ class Controller {
       }
     case KeyHelpers.escape.rawValue:
       window.resignKey()
+    case KeyHelpers.downArrow.rawValue:
+      moveSelection(by: 1)
+    case KeyHelpers.upArrow.rawValue:
+      moveSelection(by: -1)
+    case KeyHelpers.enter.rawValue:
+      if userState.selectedIndex != nil {
+        executeSelectedItem()
+      }
+    case KeyHelpers.rightArrow.rawValue:
+      enterSelectedGroup()
+    case KeyHelpers.leftArrow.rawValue:
+      goBack()
     default:
       guard let char = charForEvent(event) else { return }
       handleKey(char, withModifiers: event.modifierFlags)
@@ -318,6 +330,67 @@ class Controller {
 
     if window.isVisible {
       window.makeKeyAndOrderFront(nil)
+    }
+  }
+
+  private func moveSelection(by delta: Int) {
+    let actions = userState.currentActions
+    guard !actions.isEmpty else { return }
+
+    if let current = userState.selectedIndex {
+      var newIndex = current + delta
+      // Wrap around
+      if newIndex < 0 {
+        newIndex = actions.count - 1
+      } else if newIndex >= actions.count {
+        newIndex = 0
+      }
+      userState.selectedIndex = newIndex
+    } else {
+      // No selection yet, start at first (down) or last (up)
+      userState.selectedIndex = delta > 0 ? 0 : actions.count - 1
+    }
+  }
+
+  private func executeSelectedItem() {
+    guard let item = userState.selectedItem else { return }
+
+    switch item {
+    case .action(let action):
+      hide {
+        self.runAction(action)
+      }
+    case .group(let group):
+      userState.display = group.key
+      userState.navigateToGroup(group)
+      delay(1) {
+        self.positionCheatsheetWindow()
+      }
+    }
+  }
+
+  private func enterSelectedGroup() {
+    guard let item = userState.selectedItem else { return }
+
+    // Only enter if the selected item is a group
+    if case .group(let group) = item {
+      userState.display = group.key
+      userState.navigateToGroup(group)
+      delay(1) {
+        self.positionCheatsheetWindow()
+      }
+    }
+  }
+
+  private func goBack() {
+    // Go back to parent group if we're in a nested group
+    if !userState.navigationPath.isEmpty {
+      userState.navigationPath.removeLast()
+      userState.selectedIndex = nil
+      userState.display = userState.currentGroup?.key
+      delay(1) {
+        self.positionCheatsheetWindow()
+      }
     }
   }
 
