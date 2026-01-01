@@ -92,6 +92,12 @@ open "leaderkey://navigate?keys=a,b,c"
 open "leaderkey://navigate?keys=a,b,c&execute=false"
 ```
 
+```
+##### Optional arrow-key navigation
+```
+You can also navigate the menu with ↑ and ↓. Use → to enter groups and ← to go back, then press Enter to launch the selected item.
+```
+
 ### Example Use Cases
 
 - **Alfred/Raycast workflows**: Trigger Leader Key shortcuts programmatically
