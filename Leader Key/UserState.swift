@@ -8,9 +8,19 @@ final class UserState: ObservableObject {
   @Published var display: String?
   @Published var isShowingRefreshState: Bool
   @Published var navigationPath: [Group] = []
+  @Published var selectedIndex: Int? = nil
 
   var currentGroup: Group? {
     return navigationPath.last
+  }
+
+  var currentActions: [ActionOrGroup] {
+    currentGroup?.actions ?? userConfig?.root.actions ?? []
+  }
+
+  var selectedItem: ActionOrGroup? {
+    guard let idx = selectedIndex, idx >= 0, idx < currentActions.count else { return nil }
+    return currentActions[idx]
   }
 
   init(
@@ -28,9 +38,11 @@ final class UserState: ObservableObject {
     display = nil
     navigationPath = []
     isShowingRefreshState = false
+    selectedIndex = nil
   }
 
   func navigateToGroup(_ group: Group) {
     navigationPath.append(group)
+    selectedIndex = nil
   }
 }
