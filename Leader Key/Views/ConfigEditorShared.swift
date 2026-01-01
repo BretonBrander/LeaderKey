@@ -13,11 +13,31 @@ enum ConfigEditorUI {
 
   static func presentMoreMenu(
     anchor: NSView?,
+    onSetOpenWith: (() -> Void)? = nil,
+    onClearOpenWith: (() -> Void)? = nil,
     onDuplicate: @escaping () -> Void,
     onDelete: @escaping () -> Void
   ) {
     guard let anchor else { return }
     let menu = NSMenu()
+
+    // Add Open With options if provided
+    if onSetOpenWith != nil {
+      menu.addItem(
+        withTitle: "Set Open With App…",
+        action: #selector(MenuHandler.setOpenWith),
+        keyEquivalent: ""
+      )
+      if onClearOpenWith != nil {
+        menu.addItem(
+          withTitle: "Clear Open With",
+          action: #selector(MenuHandler.clearOpenWith),
+          keyEquivalent: ""
+        )
+      }
+      menu.addItem(NSMenuItem.separator())
+    }
+
     menu.addItem(
       withTitle: "Duplicate",
       action: #selector(MenuHandler.duplicate),
@@ -28,7 +48,12 @@ enum ConfigEditorUI {
       action: #selector(MenuHandler.delete),
       keyEquivalent: ""
     )
-    let handler = MenuHandler(onDuplicate: onDuplicate, onDelete: onDelete)
+    let handler = MenuHandler(
+      onSetOpenWith: onSetOpenWith,
+      onClearOpenWith: onClearOpenWith,
+      onDuplicate: onDuplicate,
+      onDelete: onDelete
+    )
     for item in menu.items { item.target = handler }
     objc_setAssociatedObject(
       menu,
@@ -84,6 +109,8 @@ enum ConfigEditorUI {
     let onPickAppIcon: (() -> Void)?
     let onPickSymbol: (() -> Void)?
     let onClearIcon: (() -> Void)?
+    let onSetOpenWith: (() -> Void)?
+    let onClearOpenWith: (() -> Void)?
     let onDuplicate: () -> Void
     let onDelete: () -> Void
 
@@ -91,12 +118,16 @@ enum ConfigEditorUI {
       onPickAppIcon: (() -> Void)? = nil,
       onPickSymbol: (() -> Void)? = nil,
       onClearIcon: (() -> Void)? = nil,
+      onSetOpenWith: (() -> Void)? = nil,
+      onClearOpenWith: (() -> Void)? = nil,
       onDuplicate: @escaping () -> Void,
       onDelete: @escaping () -> Void
     ) {
       self.onPickAppIcon = onPickAppIcon
       self.onPickSymbol = onPickSymbol
       self.onClearIcon = onClearIcon
+      self.onSetOpenWith = onSetOpenWith
+      self.onClearOpenWith = onClearOpenWith
       self.onDuplicate = onDuplicate
       self.onDelete = onDelete
     }
@@ -104,6 +135,8 @@ enum ConfigEditorUI {
     @objc func pickAppIcon() { onPickAppIcon?() }
     @objc func pickSymbol() { onPickSymbol?() }
     @objc func clearIcon() { onClearIcon?() }
+    @objc func setOpenWith() { onSetOpenWith?() }
+    @objc func clearOpenWith() { onClearOpenWith?() }
     @objc func duplicate() { onDuplicate() }
     @objc func delete() { onDelete() }
   }
