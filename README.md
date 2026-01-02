@@ -15,18 +15,36 @@ Watch the intro video on YouTube:
 
 ## Install
 
-**Download**
+### Option 1: Download DMG
 
-📦 [Download latest version](https://github.com/mikker/LeaderKey.app/releases)
-or
+📦 **[Download LeaderKey-1.0.dmg](build/LeaderKey-1.0.dmg)**
 
-**Homebrew**
-
-```sh
-$ brew install leader-key
+Or via terminal:
+```bash
+curl -LO https://github.com/BretonBrander/LeaderKey/raw/main/build/LeaderKey-1.0.dmg
 ```
 
-### Post-Install setup
+**Installation steps:**
+1. Open the DMG file
+2. Drag Leader Key to your Applications folder
+3. **First launch only:** Right-click Leader Key.app → "Open" → click "Open" in the dialog
+4. After that, open normally anytime
+
+> **Note:** This app is unsigned. macOS will show a security warning the first time — this is normal for apps distributed outside the Mac App Store. The right-click method bypasses Gatekeeper for this app only.
+
+### Option 2: Homebrew
+
+```sh
+brew install leader-key
+```
+
+### Option 3: Download from Releases
+
+📦 [Download from GitHub Releases](https://github.com/BretonBrander/LeaderKey/releases)
+
+---
+
+### Post-Install Setup
 - Open the settings menu with the menu bar icon <img width="17" alt="Screenshot 2025-05-21 at 1 58 46 PM" src="https://github.com/user-attachments/assets/7ba2cd99-dbd1-4b23-a35b-c5579e797321" />
 - Choose your [`leader`](#what-do-i-set-as-my-leader-key) (`Shortcut` that will open the app) 
 
@@ -91,8 +109,6 @@ open "leaderkey://navigate?keys=a,b,c"
 # Navigate without executing (preview mode)
 open "leaderkey://navigate?keys=a,b,c&execute=false"
 ```
-
-```
 ##### Optional arrow-key navigation
 ```
 You can also navigate the menu with ↑ and ↓. Use → to enter groups and ← to go back, then press Enter to launch the selected item.
@@ -104,6 +120,39 @@ You can also navigate the menu with ↑ and ↓. Use → to enter groups and ←
 - **Shell scripts**: Automate configuration reloads after editing config.json
 - **Keyboard maestro**: Chain Leader Key actions with other automations
 - **External triggers**: Open specific action sequences from other applications
+
+## Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| <kbd>↑</kbd> / <kbd>↓</kbd> | Move selection up/down |
+| <kbd>→</kbd> | Enter selected group |
+| <kbd>←</kbd> | Go back to parent group |
+| <kbd>Enter</kbd> | Execute selected item |
+| <kbd>Backspace</kbd> | Return to root |
+| <kbd>Escape</kbd> | Go back (or close if at root) |
+| <kbd>?</kbd> | Show cheatsheet |
+| <kbd>⌘ ,</kbd> | Open settings |
+
+## Action Types
+
+Leader Key supports these action types (configure in Settings → Config):
+
+- **Application** — Launch any app
+- **URL** — Open URLs or URL schemes (e.g., `raycast://`, `slack://`)
+- **Command** — Run shell commands
+- **Folder** — Open folders (optionally with a specific app)
+- **File** — Open files (optionally with a specific app)
+- **Script** — Run shell scripts with optional arguments
+
+## Modifier Keys
+
+Configure in Settings → Advanced
+
+| Modifier | What it does |
+|----------|--------------|
+| **Sticky Mode** | Hold while pressing an action to keep Leader Key open afterward |
+| **Group Sequences** | Hold while pressing a group key to run ALL actions in that group at once |
 
 ## FAQ
 
