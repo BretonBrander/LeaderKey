@@ -15,32 +15,15 @@ Watch the intro video on YouTube:
 
 ## Install
 
-### Option 1: Download DMG
+📦 **[Download from GitHub Releases](https://github.com/BretonBrander/LeaderKey/releases)** — grab the `LeaderKey-X.X.dmg` file
 
-📦 **[Download LeaderKey-1.0.dmg](build/LeaderKey-1.0.dmg)**
-
-Or via terminal:
-```bash
-curl -LO https://github.com/BretonBrander/LeaderKey/raw/main/build/LeaderKey-1.0.dmg
-```
-
-**Installation steps:**
-1. Open the DMG file
-2. Drag Leader Key to your Applications folder
+**Installation:**
+1. Download the `.dmg` file from the latest release
+2. Open the DMG and drag Leader Key to your Applications folder
 3. **First launch only:** Right-click Leader Key.app → "Open" → click "Open" in the dialog
 4. After that, open normally anytime
 
 > **Note:** This app is unsigned. macOS will show a security warning the first time — this is normal for apps distributed outside the Mac App Store. The right-click method bypasses Gatekeeper for this app only.
-
-### Option 2: Homebrew
-
-```sh
-brew install leader-key
-```
-
-### Option 3: Download from Releases
-
-📦 [Download from GitHub Releases](https://github.com/BretonBrander/LeaderKey/releases)
 
 ---
 
@@ -50,6 +33,11 @@ brew install leader-key
 
   <img width="213" alt="Screenshot 2025-05-21 at 2 01 56 PM" src="https://github.com/user-attachments/assets/5e486a9a-ee1c-4ac7-a2d9-f4d0a46eb734" />
 - Add your [shortcuts](#example-shortcuts) to the `Config` settings
+
+> **Can't find the menu bar icon?** Open settings directly from Terminal:
+> ```bash
+> open "leaderkey://settings"
+> ```
 
 ## Why Leader Key?
 
