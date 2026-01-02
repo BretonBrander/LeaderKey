@@ -125,7 +125,11 @@ class Controller {
         self.positionCheatsheetWindow()
       }
     case KeyHelpers.escape.rawValue:
-      window.resignKey()
+      if userState.navigationPath.isEmpty {
+        window.resignKey()
+      } else {
+        goBack()
+      }
     case KeyHelpers.downArrow.rawValue, KeyHelpers.space.rawValue:
       moveSelection(by: 1)
     case KeyHelpers.upArrow.rawValue:
@@ -325,7 +329,7 @@ class Controller {
     case .url:
       openURL(action)
     case .command:
-      CommandRunner.run(action.value)
+      runCommand(action)
     case .folder:
       let path: String = (action.value as NSString).expandingTildeInPath
       let folderURL = URL(fileURLWithPath: path)
@@ -342,6 +346,24 @@ class Controller {
         // Default: open in Finder
         NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: path)
       }
+    case .file:
+      let path: String = (action.value as NSString).expandingTildeInPath
+      let fileURL = URL(fileURLWithPath: path)
+      
+      if let openWithPath = action.openWith {
+        // Open file with specified application
+        let appURL = URL(fileURLWithPath: openWithPath)
+        NSWorkspace.shared.open(
+          [fileURL],
+          withApplicationAt: appURL,
+          configuration: NSWorkspace.OpenConfiguration()
+        )
+      } else {
+        // Default: open with default application
+        NSWorkspace.shared.open(fileURL)
+      }
+    case .script:
+      runScript(action)
     default:
       print("\(action.type) unknown")
     }
@@ -349,6 +371,20 @@ class Controller {
     if window.isVisible {
       window.makeKeyAndOrderFront(nil)
     }
+  }
+  
+  private func runScript(_ action: Action) {
+    guard let args = collectArgumentsIfNeeded(for: action) else { return }
+    CommandRunner.runScript(path: action.value, arguments: args)
+  }
+  
+  private func runCommand(_ action: Action) {
+    guard let args = collectArgumentsIfNeeded(for: action) else { return }
+    var command = action.value
+    for value in args {
+      command += " " + CommandRunner.shellEscape(value)
+    }
+    CommandRunner.run(command)
   }
 
   private func moveSelection(by delta: Int) {
@@ -405,10 +441,7 @@ class Controller {
 
   private func goBack() {
     // Go back to parent group if we're in a nested group
-    if !userState.navigationPath.isEmpty {
-      userState.navigationPath.removeLast()
-      userState.selectedIndex = nil
-      userState.display = userState.currentGroup?.key
+    if userState.goBack() {
       delay(1) {
         self.positionCheatsheetWindow()
       }
@@ -418,11 +451,27 @@ class Controller {
   private func clear() {
     userState.clear()
   }
+  
+  /// Returns argument values, or nil if cancelled. Returns [] if no arguments defined.
+  private func collectArgumentsIfNeeded(for action: Action) -> [String]? {
+    guard let arguments = action.arguments, !arguments.isEmpty else { return [] }
+    return ScriptArgumentDialog.collectArguments(for: arguments, scriptName: action.displayName)
+  }
 
   private func openURL(_ action: Action) {
-    guard let url = URL(string: action.value) else {
+    guard let args = collectArgumentsIfNeeded(for: action) else { return }
+    
+    // Substitute $1, $2, etc. with argument values (URL encoded)
+    var urlString = action.value
+    for (index, value) in args.enumerated() {
+      let placeholder = "$\(index + 1)"
+      let encoded = value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? value
+      urlString = urlString.replacingOccurrences(of: placeholder, with: encoded)
+    }
+    
+    guard let url = URL(string: urlString) else {
       showAlert(
-        title: "Invalid URL", message: "Failed to parse URL: \(action.value)")
+        title: "Invalid URL", message: "Failed to parse URL: \(urlString)")
       return
     }
 

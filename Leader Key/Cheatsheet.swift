@@ -12,7 +12,7 @@ enum Cheatsheet {
       content
         .background(
           RoundedRectangle(cornerRadius: 4, style: .continuous)
-            .fill(isSelected ? Color.accentColor.opacity(0.3) : Color.clear)
+            .fill(isSelected ? currentAccentColor().opacity(0.3) : Color.clear)
             .padding(.horizontal, -4)
             .padding(.vertical, -2)
         )
@@ -223,12 +223,6 @@ enum Cheatsheet {
     }
   }
 
-  struct HeightPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-      value = nextValue()
-    }
-  }
 
   static func createWindow(for userState: UserState) -> NSWindow {
     let view = CheatsheetView().environmentObject(userState)

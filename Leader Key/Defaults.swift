@@ -1,5 +1,6 @@
 import Cocoa
 import Defaults
+import SwiftUI
 
 var defaultsSuite =
   ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
@@ -17,6 +18,13 @@ extension Defaults.Keys {
     "modifierKeyConfiguration", default: .controlGroupOptionSticky, suite: defaultsSuite)
   static let theme = Key<Theme>(
     "theme", default: .mysteryBox, suite: defaultsSuite)
+  // Storage key kept as "useCustomAccentColor" for backward compatibility
+  static let useCustomColors = Key<Bool>(
+    "useCustomAccentColor", default: false, suite: defaultsSuite)
+  static let customAccentColor = Key<Data>(
+    "customAccentColor", default: NSColor.controlAccentColor.archivedData, suite: defaultsSuite)
+  static let customBackgroundColor = Key<Data>(
+    "customBackgroundColor", default: NSColor.clear.archivedData, suite: defaultsSuite)
 
   static let autoOpenCheatsheet = Key<AutoOpenCheatsheetSetting>(
     "autoOpenCheatsheet",
@@ -73,4 +81,37 @@ enum Screen: String, Defaults.Serializable {
   case primary
   case mouse
   case activeWindow
+}
+
+// MARK: - Custom Accent Color Helpers
+
+extension NSColor {
+  /// Archives the color to Data for storage (returns empty Data on failure)
+  var archivedData: Data {
+    (try? NSKeyedArchiver.archivedData(withRootObject: self, requiringSecureCoding: true)) ?? Data()
+  }
+
+  /// Unarchives a color from Data
+  static func fromArchivedData(_ data: Data) -> NSColor? {
+    try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSColor.self, from: data)
+  }
+}
+
+/// Returns the current accent color (custom if enabled, otherwise system accent)
+func currentAccentColor() -> Color {
+  if Defaults[.useCustomColors],
+     let nsColor = NSColor.fromArchivedData(Defaults[.customAccentColor]) {
+    return Color(nsColor)
+  }
+  return Color.accentColor
+}
+
+/// Returns the current background color (custom if enabled, otherwise nil/clear)
+func currentBackgroundColor() -> Color? {
+  if Defaults[.useCustomColors],
+     let nsColor = NSColor.fromArchivedData(Defaults[.customBackgroundColor]),
+     nsColor.alphaComponent > 0 {
+    return Color(nsColor)
+  }
+  return nil
 }
