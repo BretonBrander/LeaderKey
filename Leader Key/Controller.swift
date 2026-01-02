@@ -51,6 +51,11 @@ class Controller {
       }
     }.store(in: &cancellables)
 
+    // Set up tap handler for cheatsheet items
+    userState.onItemTapped = { [weak self] item in
+      self?.handleItemTapped(item)
+    }
+
     self.cheatsheetWindow = Cheatsheet.createWindow(for: userState)
   }
 
@@ -121,7 +126,7 @@ class Controller {
       }
     case KeyHelpers.escape.rawValue:
       window.resignKey()
-    case KeyHelpers.downArrow.rawValue:
+    case KeyHelpers.downArrow.rawValue, KeyHelpers.space.rawValue:
       moveSelection(by: 1)
     case KeyHelpers.upArrow.rawValue:
       moveSelection(by: -1)
@@ -323,7 +328,20 @@ class Controller {
       CommandRunner.run(action.value)
     case .folder:
       let path: String = (action.value as NSString).expandingTildeInPath
-      NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: path)
+      let folderURL = URL(fileURLWithPath: path)
+      
+      if let openWithPath = action.openWith {
+        // Open folder with specified application
+        let appURL = URL(fileURLWithPath: openWithPath)
+        NSWorkspace.shared.open(
+          [folderURL],
+          withApplicationAt: appURL,
+          configuration: NSWorkspace.OpenConfiguration()
+        )
+      } else {
+        // Default: open in Finder
+        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: path)
+      }
     default:
       print("\(action.type) unknown")
     }
@@ -354,7 +372,10 @@ class Controller {
 
   private func executeSelectedItem() {
     guard let item = userState.selectedItem else { return }
+    handleItemTapped(item)
+  }
 
+  private func handleItemTapped(_ item: ActionOrGroup) {
     switch item {
     case .action(let action):
       hide {
@@ -414,6 +435,18 @@ class Controller {
       return
     }
 
+    // If openWith is specified, open URL with that application
+    if let openWithPath = action.openWith {
+      let appURL = URL(fileURLWithPath: openWithPath)
+      NSWorkspace.shared.open(
+        [url],
+        withApplicationAt: appURL,
+        configuration: NSWorkspace.OpenConfiguration()
+      )
+      return
+    }
+
+    // Default behavior
     if scheme == "http" || scheme == "https" {
       NSWorkspace.shared.open(
         url,

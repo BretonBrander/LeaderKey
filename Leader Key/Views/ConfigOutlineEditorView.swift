@@ -628,8 +628,13 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
   }
 
   private func showMoreMenu(anchor: NSView?) {
+    let action = currentAction()
+    let supportsOpenWith = action?.type == .folder || action?.type == .url
+
     ConfigEditorUI.presentMoreMenu(
       anchor: anchor,
+      onSetOpenWith: supportsOpenWith ? { self.handlePickOpenWithApp() } : nil,
+      onClearOpenWith: supportsOpenWith && action?.openWith != nil ? { self.handleClearOpenWith() } : nil,
       onDuplicate: { self.onDuplicate?() },
       onDelete: { self.onDelete?() }
     )
@@ -944,6 +949,28 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
 
   private func updateIcon(for action: Action) {
     iconButton.image = action.resolvedIcon()
+  }
+
+  // MARK: Open With helpers
+  private func handlePickOpenWithApp() {
+    guard var a = currentAction() else { return }
+    let panel = NSOpenPanel()
+    panel.allowedContentTypes = [.applicationBundle, .application]
+    panel.canChooseFiles = true
+    panel.canChooseDirectories = true
+    panel.allowsMultipleSelection = false
+    panel.directoryURL = URL(fileURLWithPath: "/Applications")
+    panel.message = "Choose an application to open this item with"
+    if panel.runModal() == .OK {
+      a.openWith = panel.url?.path
+      self.onChange?(.action(a))
+    }
+  }
+
+  private func handleClearOpenWith() {
+    guard var a = currentAction() else { return }
+    a.openWith = nil
+    self.onChange?(.action(a))
   }
 
   // symbol picker presenting delegated to shared helper

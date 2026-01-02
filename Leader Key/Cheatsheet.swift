@@ -38,6 +38,8 @@ enum Cheatsheet {
     let action: Action
     let indent: Int
     var isSelected: Bool = false
+    var onTap: (() -> Void)? = nil
+    var onHover: ((Bool) -> Void)? = nil
     @Default(.showDetailsInCheatsheet) var showDetails
     @Default(.showAppIconsInCheatsheet) var showIcons
 
@@ -66,6 +68,9 @@ enum Cheatsheet {
         }
       }
       .modifier(SelectionHighlight(isSelected: isSelected))
+      .contentShape(Rectangle())
+      .onHover { hovering in onHover?(hovering) }
+      .onTapGesture { onTap?() }
     }
   }
 
@@ -77,6 +82,8 @@ enum Cheatsheet {
     let group: Group
     let indent: Int
     var isSelected: Bool = false
+    var onTap: (() -> Void)? = nil
+    var onHover: ((Bool) -> Void)? = nil
 
     var body: some SwiftUI.View {
       VStack(alignment: .leading, spacing: 4) {
@@ -104,6 +111,9 @@ enum Cheatsheet {
           }
         }
         .modifier(SelectionHighlight(isSelected: isSelected))
+        .contentShape(Rectangle())
+        .onHover { hovering in onHover?(hovering) }
+        .onTapGesture { onTap?() }
         if expand {
           ForEach(Array(group.actions.enumerated()), id: \.offset) { _, item in
             switch item {
@@ -164,11 +174,23 @@ enum Cheatsheet {
               let isSelected = userState.selectedIndex == index
               switch item {
               case .action(let action):
-                Cheatsheet.ActionRow(action: action, indent: 0, isSelected: isSelected)
-                  .id(index)
+                Cheatsheet.ActionRow(
+                  action: action,
+                  indent: 0,
+                  isSelected: isSelected,
+                  onTap: { userState.onItemTapped?(item) },
+                  onHover: { hovering in if hovering { userState.selectedIndex = index } }
+                )
+                .id(index)
               case .group(let group):
-                Cheatsheet.GroupRow(group: group, indent: 0, isSelected: isSelected)
-                  .id(index)
+                Cheatsheet.GroupRow(
+                  group: group,
+                  indent: 0,
+                  isSelected: isSelected,
+                  onTap: { userState.onItemTapped?(item) },
+                  onHover: { hovering in if hovering { userState.selectedIndex = index } }
+                )
+                .id(index)
               }
             }
           }

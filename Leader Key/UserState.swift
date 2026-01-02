@@ -10,6 +10,9 @@ final class UserState: ObservableObject {
   @Published var navigationPath: [Group] = []
   @Published var selectedIndex: Int? = nil
 
+  /// Callback for when an item is tapped in the cheatsheet
+  var onItemTapped: ((ActionOrGroup) -> Void)?
+
   var currentGroup: Group? {
     return navigationPath.last
   }
