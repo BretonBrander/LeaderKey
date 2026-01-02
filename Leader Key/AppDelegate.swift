@@ -22,22 +22,29 @@ class AppDelegate: NSObject, NSApplicationDelegate,
   var state: UserState!
   @IBOutlet var updaterController: SPUStandardUpdaterController!
 
-  lazy var settingsWindowController = SettingsWindowController(
-    panes: [
-      Settings.Pane(
-        identifier: .general, title: "General",
-        toolbarIcon: NSImage(named: NSImage.preferencesGeneralName)!,
-        contentView: { GeneralPane().environmentObject(self.config) }
-      ),
-      Settings.Pane(
-        identifier: .advanced, title: "Advanced",
-        toolbarIcon: NSImage(named: NSImage.advancedName)!,
-        contentView: {
-          AdvancedPane().environmentObject(self.config)
-        }),
-    ],
-    style: .segmentedControl,
-  )
+  lazy var settingsWindowController: SettingsWindowController = {
+    let controller = SettingsWindowController(
+      panes: [
+        Settings.Pane(
+          identifier: .general, title: "General",
+          toolbarIcon: NSImage(named: NSImage.preferencesGeneralName)!,
+          contentView: { GeneralPane().environmentObject(self.config) }
+        ),
+        Settings.Pane(
+          identifier: .advanced, title: "Advanced",
+          toolbarIcon: NSImage(named: NSImage.advancedName)!,
+          contentView: {
+            AdvancedPane().environmentObject(self.config)
+          }),
+      ],
+      style: .segmentedControl
+    )
+    // Hide the duplicate labels under the segmented control
+    if let window = controller.window {
+      window.toolbar?.displayMode = .iconOnly
+    }
+    return controller
+  }()
 
   func applicationDidFinishLaunching(_: Notification) {
 

@@ -9,6 +9,7 @@ final class UserState: ObservableObject {
   @Published var isShowingRefreshState: Bool
   @Published var navigationPath: [Group] = []
   @Published var selectedIndex: Int? = nil
+  @Published var selectionHistory: [Int?] = []
 
   /// Callback for when an item is tapped in the cheatsheet
   var onItemTapped: ((ActionOrGroup) -> Void)?
@@ -42,10 +43,20 @@ final class UserState: ObservableObject {
     navigationPath = []
     isShowingRefreshState = false
     selectedIndex = nil
+    selectionHistory = []
   }
 
   func navigateToGroup(_ group: Group) {
+    selectionHistory.append(selectedIndex)
     navigationPath.append(group)
     selectedIndex = nil
+  }
+
+  func goBack() -> Bool {
+    guard !navigationPath.isEmpty else { return false }
+    navigationPath.removeLast()
+    selectedIndex = selectionHistory.popLast() ?? nil
+    display = currentGroup?.key
+    return true
   }
 }

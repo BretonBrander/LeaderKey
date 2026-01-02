@@ -406,6 +406,18 @@ enum Type: String, Codable {
   case url
   case command
   case folder
+  case file
+  case script
+}
+
+struct ScriptArgument: Codable, Equatable {
+  var name: String
+  var defaultValue: String?
+  
+  init(name: String, defaultValue: String? = nil) {
+    self.name = name
+    self.defaultValue = defaultValue
+  }
 }
 
 protocol Item {
@@ -426,6 +438,7 @@ struct Action: Item, Codable, Equatable {
   var value: String
   var iconPath: String?
   var openWith: String?  // Optional app path to open folder/URL with instead of default
+  var arguments: [ScriptArgument]?  // Arguments for script type actions
 
   var displayName: String {
     guard let labelValue = label else { return bestGuessDisplayName }
@@ -442,17 +455,22 @@ struct Action: Item, Codable, Equatable {
       return value.components(separatedBy: " ").first ?? value
     case .folder:
       return (value as NSString).lastPathComponent
+    case .file:
+      return (value as NSString).lastPathComponent
+    case .script:
+      return (value as NSString).lastPathComponent.replacingOccurrences(
+        of: ".sh", with: "")
     case .url:
       return "URL"
     default:
       return value
     }
   }
-  private enum CodingKeys: String, CodingKey { case key, type, label, value, iconPath, openWith }
+  private enum CodingKeys: String, CodingKey { case key, type, label, value, iconPath, openWith, arguments }
 
   init(
     uiid: UUID = UUID(), key: String?, type: Type, label: String? = nil, value: String,
-    iconPath: String? = nil, openWith: String? = nil
+    iconPath: String? = nil, openWith: String? = nil, arguments: [ScriptArgument]? = nil
   ) {
     self.uiid = uiid
     self.key = key
@@ -461,6 +479,7 @@ struct Action: Item, Codable, Equatable {
     self.value = value
     self.iconPath = iconPath
     self.openWith = openWith
+    self.arguments = arguments
   }
 
   init(from decoder: Decoder) throws {
@@ -472,6 +491,7 @@ struct Action: Item, Codable, Equatable {
     self.value = try c.decode(String.self, forKey: .value)
     self.iconPath = try c.decodeIfPresent(String.self, forKey: .iconPath)
     self.openWith = try c.decodeIfPresent(String.self, forKey: .openWith)
+    self.arguments = try c.decodeIfPresent([ScriptArgument].self, forKey: .arguments)
   }
 
   func encode(to encoder: Encoder) throws {
@@ -486,6 +506,7 @@ struct Action: Item, Codable, Equatable {
     if let l = label, !l.isEmpty { try c.encode(l, forKey: .label) }
     try c.encodeIfPresent(iconPath, forKey: .iconPath)
     try c.encodeIfPresent(openWith, forKey: .openWith)
+    if let args = arguments, !args.isEmpty { try c.encode(args, forKey: .arguments) }
   }
 }
 
@@ -559,7 +580,7 @@ enum ActionOrGroup: Codable, Equatable {
   }
 
   private enum CodingKeys: String, CodingKey {
-    case key, type, value, actions, label, iconPath, openWith
+    case key, type, value, actions, label, iconPath, openWith, arguments
   }
 
   var uiid: UUID {
@@ -583,7 +604,8 @@ enum ActionOrGroup: Codable, Equatable {
     default:
       let value = try container.decode(String.self, forKey: .value)
       let openWith = try container.decodeIfPresent(String.self, forKey: .openWith)
-      self = .action(Action(key: key, type: type, label: label, value: value, iconPath: iconPath, openWith: openWith))
+      let arguments = try container.decodeIfPresent([ScriptArgument].self, forKey: .arguments)
+      self = .action(Action(key: key, type: type, label: label, value: value, iconPath: iconPath, openWith: openWith, arguments: arguments))
     }
   }
 
@@ -605,6 +627,9 @@ enum ActionOrGroup: Codable, Equatable {
       }
       try container.encodeIfPresent(action.iconPath, forKey: .iconPath)
       try container.encodeIfPresent(action.openWith, forKey: .openWith)
+      if let args = action.arguments, !args.isEmpty {
+        try container.encode(args, forKey: .arguments)
+      }
     case .group(let group):
       // Always encode key in textual form for JSON
       if let keyValue = group.key {
