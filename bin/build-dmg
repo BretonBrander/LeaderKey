@@ -1,0 +1,59 @@
+#!/bin/bash
+set -e
+
+# Configuration
+VERSION="1.0"
+APP_NAME="Leader Key"
+BUILD_DIR="build"
+PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+cd "$PROJECT_DIR"
+
+echo "Building $APP_NAME v$VERSION..."
+
+# Clean previous builds
+rm -rf "$BUILD_DIR"
+mkdir -p "$BUILD_DIR"
+
+# Build release (ad-hoc signed, no Apple ID or personal credentials required)
+echo "Compiling release build..."
+xcodebuild -project "Leader Key.xcodeproj" \
+  -scheme "Leader Key" \
+  -configuration Release \
+  -derivedDataPath "$BUILD_DIR/derived" \
+  -skipPackagePluginValidation \
+  CODE_SIGN_IDENTITY="-" \
+  CODE_SIGNING_REQUIRED=NO \
+  build
+
+# Copy app bundle
+echo "Copying app bundle..."
+cp -R "$BUILD_DIR/derived/Build/Products/Release/Leader Key.app" "$BUILD_DIR/"
+
+# Remove any existing DMG with this name
+rm -f "$BUILD_DIR/LeaderKey-$VERSION.dmg"
+
+# Create DMG
+echo "Creating DMG installer..."
+create-dmg \
+  --volname "$APP_NAME" \
+  --window-size 600 400 \
+  --icon-size 100 \
+  --icon "Leader Key.app" 150 190 \
+  --hide-extension "Leader Key.app" \
+  --app-drop-link 450 185 \
+  "$BUILD_DIR/LeaderKey-$VERSION.dmg" \
+  "$BUILD_DIR/Leader Key.app"
+
+# Clean up intermediate files - only keep the DMG
+echo "Cleaning up intermediate files..."
+rm -rf "$BUILD_DIR/derived"
+rm -rf "$BUILD_DIR/Leader Key.app"
+
+echo ""
+echo "✅ Build complete!"
+echo "   DMG: $BUILD_DIR/LeaderKey-$VERSION.dmg"
+echo ""
+echo "To distribute, share the DMG file."
+echo "Users will need to right-click > Open the first time they run it."
+
