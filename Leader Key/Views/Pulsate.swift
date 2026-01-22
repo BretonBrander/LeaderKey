@@ -9,6 +9,7 @@ import Foundation
 import SwiftUI
 
 public struct Pulsate: ViewModifier {
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @State private var scale: Bool = true
 
   static let singleDurationS = 0.15
@@ -23,13 +24,21 @@ public struct Pulsate: ViewModifier {
 
   public func body(content: Content) -> some View {
     content
-      .repeatingAnimation(
-        animation: Animation.easeInOut(duration: duration).repeatForever(autoreverses: true),
-        prepare: { scale = true },
-        onStart: { scale = false },
-        onStop: { scale = true }
-      )
+      .onAppear {
+        pulseOnce()
+      }
       .scaleEffect(scale ? 1 : targetScale)
+  }
+
+  private func pulseOnce() {
+    scale = true
+    guard AnimationGate.isEnabled(reduceMotion: reduceMotion) else { return }
+    AnimationGate.withAnimation(
+      .easeInOut(duration: duration).repeatCount(1, autoreverses: true),
+      reduceMotion: reduceMotion
+    ) {
+      scale = false
+    }
   }
 }
 

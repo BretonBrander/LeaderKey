@@ -132,22 +132,22 @@ struct GlossyGlassBackground: View {
       AnimationGate.withAnimation(.easeOut(duration: 0.6), reduceMotion: reduceMotion) {
         shimmerOffset = 1.2
       }
+
+      pulseBreathingOnce()
     }
-    .repeatingAnimation(
-      animation: .easeInOut(duration: 2.5).repeatForever(autoreverses: true),
-      prepare: {
-        breatheOpacity = 0.7
-        breatheScale = 1.0
-      },
-      onStart: {
-        breatheOpacity = 0.5
-        breatheScale = 1.002
-      },
-      onStop: {
-        breatheOpacity = 0.7
-        breatheScale = 1.0
-      }
-    )
+  }
+
+  private func pulseBreathingOnce() {
+    breatheOpacity = 0.7
+    breatheScale = 1.0
+    guard AnimationGate.isEnabled(reduceMotion: reduceMotion) else { return }
+    AnimationGate.withAnimation(
+      .easeInOut(duration: 2.5).repeatCount(1, autoreverses: true),
+      reduceMotion: reduceMotion
+    ) {
+      breatheOpacity = 0.5
+      breatheScale = 1.002
+    }
   }
 }
 

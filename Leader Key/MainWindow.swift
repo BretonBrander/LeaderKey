@@ -43,6 +43,10 @@ class MainWindow: PanelWindow, NSWindowDelegate {
     controller.hide()
   }
 
+  func windowWillClose(_ notification: Notification) {
+    AnimationGate.setUIVisible(false)
+  }
+
   override func performKeyEquivalent(with event: NSEvent) -> Bool {
     if event.modifierFlags.contains(.command) {
       controller.keyDown(with: event)

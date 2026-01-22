@@ -140,6 +140,7 @@ enum LiquidGlass {
 
   struct PulseGlow: View {
     let isActive: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pulseOpacity: Double = 0.06
     @State private var pulseScale: CGFloat = 1.0
 
@@ -149,22 +150,35 @@ enum LiquidGlass {
         .blur(radius: 10)
         .scaleEffect(pulseScale)
         .opacity(isActive ? 1 : 0)
-        .repeatingAnimation(
-          isActive: isActive,
-          animation: .easeInOut(duration: 2.0).repeatForever(autoreverses: true),
-          prepare: {
-            pulseOpacity = 0.06
-            pulseScale = 1.0
-          },
-          onStart: {
-            pulseOpacity = 0.15
-            pulseScale = 1.08
-          },
-          onStop: {
-            pulseOpacity = 0.06
-            pulseScale = 1.0
+        .onAppear {
+          if isActive {
+            pulseOnce()
           }
-        )
+        }
+        .onChange(of: isActive) { active in
+          if active {
+            pulseOnce()
+          } else {
+            resetPulse()
+          }
+        }
+    }
+
+    private func resetPulse() {
+      pulseOpacity = 0.06
+      pulseScale = 1.0
+    }
+
+    private func pulseOnce() {
+      resetPulse()
+      guard AnimationGate.isEnabled(reduceMotion: reduceMotion) else { return }
+      AnimationGate.withAnimation(
+        .easeInOut(duration: 2.0).repeatCount(1, autoreverses: true),
+        reduceMotion: reduceMotion
+      ) {
+        pulseOpacity = 0.15
+        pulseScale = 1.08
+      }
     }
   }
 
