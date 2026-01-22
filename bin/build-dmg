@@ -1,4 +1,6 @@
 #!/bin/bash
+# To use, run: chmod +x bin/build-dmg && bin/build-dmg
+
 set -e
 
 # Configuration
