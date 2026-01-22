@@ -39,6 +39,8 @@ extension Defaults.Keys {
     "showDetailsInCheatsheet", default: true, suite: defaultsSuite)
   static let showFaviconsInCheatsheet = Key<Bool>(
     "showFaviconsInCheatsheet", default: true, suite: defaultsSuite)
+  static let enableAnimations = Key<Bool>(
+    "enableAnimations", default: true, suite: defaultsSuite)
   static let reactivateBehavior = Key<ReactivateBehavior>(
     "reactivateBehavior", default: .hide, suite: defaultsSuite)
   static let screen = Key<Screen>(
@@ -100,7 +102,8 @@ extension NSColor {
 /// Returns the current accent color (custom if enabled, otherwise system accent)
 func currentAccentColor() -> Color {
   if Defaults[.useCustomColors],
-     let nsColor = NSColor.fromArchivedData(Defaults[.customAccentColor]) {
+    let nsColor = NSColor.fromArchivedData(Defaults[.customAccentColor])
+  {
     return Color(nsColor)
   }
   return Color.accentColor
@@ -109,8 +112,9 @@ func currentAccentColor() -> Color {
 /// Returns the current background color (custom if enabled, otherwise nil/clear)
 func currentBackgroundColor() -> Color? {
   if Defaults[.useCustomColors],
-     let nsColor = NSColor.fromArchivedData(Defaults[.customBackgroundColor]),
-     nsColor.alphaComponent > 0 {
+    let nsColor = NSColor.fromArchivedData(Defaults[.customBackgroundColor]),
+    nsColor.alphaComponent > 0
+  {
     return Color(nsColor)
   }
   return nil

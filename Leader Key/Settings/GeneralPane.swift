@@ -24,7 +24,8 @@ struct GeneralPane: View {
       },
       set: { newColor in
         if let cgColor = newColor.cgColor,
-           let nsColor = NSColor(cgColor: cgColor) {
+          let nsColor = NSColor(cgColor: cgColor)
+        {
           customAccentColorData = nsColor.archivedData
         }
       }
@@ -36,14 +37,16 @@ struct GeneralPane: View {
     Binding(
       get: {
         if let nsColor = NSColor.fromArchivedData(customBackgroundColorData),
-           nsColor != .clear {
+          nsColor != .clear
+        {
           return Color(nsColor)
         }
         return Color.gray.opacity(0.3)
       },
       set: { newColor in
         if let cgColor = newColor.cgColor,
-           let nsColor = NSColor(cgColor: cgColor) {
+          let nsColor = NSColor(cgColor: cgColor)
+        {
           customBackgroundColorData = nsColor.archivedData
         }
       }
@@ -279,7 +282,8 @@ private struct SquareColorPicker: View {
 
     // NOW set the current color (after observer is in place)
     if let cgColor = selection.cgColor,
-       let nsColor = NSColor(cgColor: cgColor) {
+      let nsColor = NSColor(cgColor: cgColor)
+    {
       panel.color = nsColor
     }
 

@@ -36,12 +36,12 @@ class CommandRunner {
       alert.runModal()
     }
   }
-  
+
   /// Runs a shell script file with the given arguments
   static func runScript(path: String, arguments: [String] = []) {
     let fileManager = FileManager.default
     let expandedPath = (path as NSString).expandingTildeInPath
-    
+
     // Validate script exists
     guard fileManager.fileExists(atPath: expandedPath) else {
       let alert = NSAlert()
@@ -51,15 +51,15 @@ class CommandRunner {
       alert.runModal()
       return
     }
-    
+
     // Build the command with properly escaped path and arguments
     var commandParts = [shellEscape(expandedPath)]
     commandParts.append(contentsOf: arguments.map { shellEscape($0) })
     let command = commandParts.joined(separator: " ")
-    
+
     run(command)
   }
-  
+
   /// Escapes a string for safe use in shell commands
   static func shellEscape(_ string: String) -> String {
     // If string contains no special characters, return as-is

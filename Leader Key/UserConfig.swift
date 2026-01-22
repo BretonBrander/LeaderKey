@@ -413,7 +413,7 @@ enum Type: String, Codable {
 struct ScriptArgument: Codable, Equatable {
   var name: String
   var defaultValue: String?
-  
+
   init(name: String, defaultValue: String? = nil) {
     self.name = name
     self.defaultValue = defaultValue
@@ -466,7 +466,9 @@ struct Action: Item, Codable, Equatable {
       return value
     }
   }
-  private enum CodingKeys: String, CodingKey { case key, type, label, value, iconPath, openWith, arguments }
+  private enum CodingKeys: String, CodingKey {
+    case key, type, label, value, iconPath, openWith, arguments
+  }
 
   init(
     uiid: UUID = UUID(), key: String?, type: Type, label: String? = nil, value: String,
@@ -605,7 +607,10 @@ enum ActionOrGroup: Codable, Equatable {
       let value = try container.decode(String.self, forKey: .value)
       let openWith = try container.decodeIfPresent(String.self, forKey: .openWith)
       let arguments = try container.decodeIfPresent([ScriptArgument].self, forKey: .arguments)
-      self = .action(Action(key: key, type: type, label: label, value: value, iconPath: iconPath, openWith: openWith, arguments: arguments))
+      self = .action(
+        Action(
+          key: key, type: type, label: label, value: value, iconPath: iconPath, openWith: openWith,
+          arguments: arguments))
     }
   }
 

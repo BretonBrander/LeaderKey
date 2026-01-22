@@ -20,6 +20,7 @@ struct GlossyGlassBackground: View {
   @State private var shimmerOffset: CGFloat = -0.3
   @State private var breatheScale: CGFloat = 1.0
   @State private var breatheOpacity: Double = 0.7
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   // Observe custom color settings for reactivity
   @Default(.useCustomColors) private var useCustomColor
@@ -28,8 +29,9 @@ struct GlossyGlassBackground: View {
   /// Background tint color when custom colors are enabled
   private var backgroundTint: Color? {
     guard useCustomColor,
-          let nsColor = NSColor.fromArchivedData(backgroundColorData),
-          nsColor.alphaComponent > 0 else {
+      let nsColor = NSColor.fromArchivedData(backgroundColorData),
+      nsColor.alphaComponent > 0
+    else {
       return nil
     }
     return Color(nsColor)
@@ -37,6 +39,20 @@ struct GlossyGlassBackground: View {
 
   init(cornerRadius: CGFloat = GlassEffects.cornerRadius) {
     self.cornerRadius = cornerRadius
+  }
+
+  private var breatheGradient: LinearGradient {
+    LinearGradient(
+      stops: [
+        .init(color: .white.opacity(1.0), location: 0),
+        .init(color: .white.opacity(0.5), location: 0.2),
+        .init(color: .white.opacity(0.2), location: 0.5),
+        .init(color: .white.opacity(0.3), location: 0.8),
+        .init(color: .white.opacity(0.4), location: 1),
+      ],
+      startPoint: .top,
+      endPoint: .bottom
+    )
   }
 
   var body: some View {
@@ -63,7 +79,7 @@ struct GlossyGlassBackground: View {
               .init(color: .white.opacity(0.25), location: 0),
               .init(color: .white.opacity(0.2), location: 0.08),
               .init(color: .white.opacity(0.05), location: 0.2),
-              .init(color: .clear, location: 0.35)
+              .init(color: .clear, location: 0.35),
             ],
             startPoint: .top,
             endPoint: .bottom
@@ -77,7 +93,7 @@ struct GlossyGlassBackground: View {
             stops: [
               .init(color: .clear, location: 0),
               .init(color: .black.opacity(0.05), location: 0.6),
-              .init(color: .black.opacity(0.08), location: 1)
+              .init(color: .black.opacity(0.08), location: 1),
             ],
             startPoint: .top,
             endPoint: .bottom
@@ -90,19 +106,10 @@ struct GlossyGlassBackground: View {
       // Breathing edge glow (animated opacity)
       GlassEffects.rect(cornerRadius)
         .stroke(
-          LinearGradient(
-            stops: [
-              .init(color: .white.opacity(breatheOpacity), location: 0),
-              .init(color: .white.opacity(breatheOpacity * 0.5), location: 0.2),
-              .init(color: .white.opacity(breatheOpacity * 0.2), location: 0.5),
-              .init(color: .white.opacity(breatheOpacity * 0.3), location: 0.8),
-              .init(color: .white.opacity(breatheOpacity * 0.4), location: 1)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-          ),
+          breatheGradient,
           lineWidth: 1.5
         )
+        .opacity(breatheOpacity)
         .scaleEffect(breatheScale)
 
       // Fast shimmer sweep on appear
@@ -113,7 +120,7 @@ struct GlossyGlassBackground: View {
               .init(color: .clear, location: max(0, shimmerOffset)),
               .init(color: .white.opacity(0.2), location: min(1, max(0, shimmerOffset + 0.03))),
               .init(color: .white.opacity(0.12), location: min(1, max(0, shimmerOffset + 0.08))),
-              .init(color: .clear, location: min(1, shimmerOffset + 0.12))
+              .init(color: .clear, location: min(1, shimmerOffset + 0.12)),
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -122,19 +129,25 @@ struct GlossyGlassBackground: View {
     }
     .onAppear {
       // Quick initial shimmer
-      withAnimation(.easeOut(duration: 0.6)) {
+      AnimationGate.withAnimation(.easeOut(duration: 0.6), reduceMotion: reduceMotion) {
         shimmerOffset = 1.2
       }
-
-      // Subtle breathing animation for border
-      withAnimation(
-        .easeInOut(duration: 2.5)
-        .repeatForever(autoreverses: true)
-      ) {
+    }
+    .repeatingAnimation(
+      animation: .easeInOut(duration: 2.5).repeatForever(autoreverses: true),
+      prepare: {
+        breatheOpacity = 0.7
+        breatheScale = 1.0
+      },
+      onStart: {
         breatheOpacity = 0.5
         breatheScale = 1.002
+      },
+      onStop: {
+        breatheOpacity = 0.7
+        breatheScale = 1.0
       }
-    }
+    )
   }
 }
 
@@ -167,4 +180,3 @@ struct HeightPreferenceKey: PreferenceKey {
     value = nextValue()
   }
 }
-

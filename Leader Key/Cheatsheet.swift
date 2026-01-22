@@ -131,6 +131,7 @@ enum Cheatsheet {
   struct CheatsheetView: SwiftUI.View {
     @EnvironmentObject var userState: UserState
     @State private var contentHeight: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var maxHeight: CGFloat {
       if let screen = NSScreen.main {
@@ -206,7 +207,7 @@ enum Cheatsheet {
         }
         .onChange(of: userState.selectedIndex) { newIndex in
           if let index = newIndex {
-            withAnimation(.easeInOut(duration: 0.15)) {
+            AnimationGate.withAnimation(.easeInOut(duration: 0.15), reduceMotion: reduceMotion) {
               proxy.scrollTo(index, anchor: .center)
             }
           }
@@ -222,7 +223,6 @@ enum Cheatsheet {
       }
     }
   }
-
 
   static func createWindow(for userState: UserState) -> NSWindow {
     let view = CheatsheetView().environmentObject(userState)

@@ -2,3 +2,6 @@ Updates/*
 *xcuserdata*
 default.profraw
 build/
+.github/.DS_Store
+Leader Key/.DS_Store
+.DS_Store

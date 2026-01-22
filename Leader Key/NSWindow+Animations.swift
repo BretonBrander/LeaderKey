@@ -6,12 +6,19 @@ extension NSWindow {
   ) {
     alphaValue = 0
 
-    NSAnimationContext.runAnimationGroup { context in
-      context.duration = duration
-      animator().alphaValue = 1
-    } completionHandler: {
-      callback?()
-    }
+    AnimationGate.runAppKitAnimation(
+      duration: duration,
+      animations: { animated in
+        if animated {
+          self.animator().alphaValue = 1
+        } else {
+          self.alphaValue = 1
+        }
+      },
+      completion: {
+        callback?()
+      }
+    )
   }
 
   func fadeOut(
@@ -19,12 +26,19 @@ extension NSWindow {
   ) {
     alphaValue = 1
 
-    NSAnimationContext.runAnimationGroup { context in
-      context.duration = duration
-      animator().alphaValue = 0
-    } completionHandler: {
-      callback?()
-    }
+    AnimationGate.runAppKitAnimation(
+      duration: duration,
+      animations: { animated in
+        if animated {
+          self.animator().alphaValue = 0
+        } else {
+          self.alphaValue = 0
+        }
+      },
+      completion: {
+        callback?()
+      }
+    )
   }
 
   func fadeInAndUp(
@@ -39,13 +53,21 @@ extension NSWindow {
     setFrame(fromFrame, display: true)
     alphaValue = 0
 
-    NSAnimationContext.runAnimationGroup { context in
-      context.duration = duration
-      animator().alphaValue = 1
-      animator().setFrame(toFrame, display: true)
-    } completionHandler: {
-      callback?()
-    }
+    AnimationGate.runAppKitAnimation(
+      duration: duration,
+      animations: { animated in
+        if animated {
+          self.animator().alphaValue = 1
+          self.animator().setFrame(toFrame, display: true)
+        } else {
+          self.alphaValue = 1
+          self.setFrame(toFrame, display: true)
+        }
+      },
+      completion: {
+        callback?()
+      }
+    )
   }
 
   func fadeOutAndDown(
@@ -60,16 +82,30 @@ extension NSWindow {
     setFrame(fromFrame, display: true)
     alphaValue = 1
 
-    NSAnimationContext.runAnimationGroup { context in
-      context.duration = duration
-      animator().alphaValue = 0
-      animator().setFrame(toFrame, display: true)
-    } completionHandler: {
-      callback?()
-    }
+    AnimationGate.runAppKitAnimation(
+      duration: duration,
+      animations: { animated in
+        if animated {
+          self.animator().alphaValue = 0
+          self.animator().setFrame(toFrame, display: true)
+        } else {
+          self.alphaValue = 0
+          self.setFrame(toFrame, display: true)
+        }
+      },
+      completion: {
+        callback?()
+      }
+    )
   }
 
   func shake() {
+    if !AnimationGate.enableAnimations || !AnimationGate.isUIVisible
+      || AnimationGate.reduceMotionSystem
+    {
+      return
+    }
+
     let numberOfShakes = 3
     let durationOfShake = 0.4
     let vigourOfShake = 0.03

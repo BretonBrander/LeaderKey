@@ -749,7 +749,9 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
 
     valueStack.makeFlex()
 
-    for view in [keyButton, typePopup, iconButton, valueStack, labelButton, openWithBtn, argsBtn, moreBtn] {
+    for view in [
+      keyButton, typePopup, iconButton, valueStack, labelButton, openWithBtn, argsBtn, moreBtn,
+    ] {
       container.addArrangedSubview(view)
     }
     addSubview(container)
@@ -834,7 +836,8 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
       onDuplicate: { self.onDuplicate?() },
       onDelete: { self.onDelete?() },
       onSetOpenWith: supportsOpenWith ? { self.handlePickOpenWithApp() } : nil,
-      onClearOpenWith: supportsOpenWith && action?.openWith != nil ? { self.handleClearOpenWith() } : nil,
+      onClearOpenWith: supportsOpenWith && action?.openWith != nil
+        ? { self.handleClearOpenWith() } : nil,
       onBulkDelete: { self.onBulkDelete?() },
       onBulkSetOpenWith: { self.onBulkSetOpenWith?() },
       onBulkSetAppIcon: { self.onBulkSetAppIcon?() },
@@ -1043,7 +1046,8 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
       panel.canChooseFiles = !chooseDir || allowsAppBundles
       if let types = allowedTypes { panel.allowedContentTypes = types }
       // Start in /Applications only when selecting apps, otherwise use home directory
-      panel.directoryURL = allowsAppBundles
+      panel.directoryURL =
+        allowsAppBundles
         ? URL(fileURLWithPath: "/Applications")
         : FileManager.default.homeDirectoryForCurrentUser
       if panel.runModal() == .OK, let url = panel.url { picked(url) }
@@ -1073,13 +1077,15 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
     [Type.application, .url, .command, .folder, .file, .script][max(0, min(5, idx))]
   }
 
-  private func promptText(title: String, initial: String, hint: String? = nil, onOK: @escaping (String) -> Void) {
+  private func promptText(
+    title: String, initial: String, hint: String? = nil, onOK: @escaping (String) -> Void
+  ) {
     let alert = NSAlert()
     alert.messageText = title
     alert.addButton(withTitle: "OK")
     alert.addButton(withTitle: "Cancel")
     let field = NSTextField(string: initial)
-    
+
     if let hint = hint {
       let container = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 44))
       field.frame = NSRect(x: 0, y: 18, width: 300, height: 22)
@@ -1094,7 +1100,7 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
       field.frame = NSRect(x: 0, y: 0, width: 260, height: 22)
       alert.accessoryView = field
     }
-    
+
     alert.window.initialFirstResponder = field
     field.selectText(nil)
     let response = alert.runModal()
@@ -1271,7 +1277,7 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
   private func updateArgsButton(for action: Action) {
     // Show args button for script, command, and url types
     argsBtn.isHidden = action.type != .script && action.type != .command && action.type != .url
-    
+
     // Update button title to show argument count
     if let args = action.arguments, !args.isEmpty {
       argsBtn.title = "Args (\(args.count))"
@@ -1282,28 +1288,28 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
 
   private func showArgumentsEditor() {
     guard var action = currentAction() else { return }
-    
+
     let alert = NSAlert()
     alert.messageText = "Edit Optional Arguments"
     alert.informativeText = "Enter arguments (one per line).\nFormat: name | default value"
     alert.addButton(withTitle: "Save")
     alert.addButton(withTitle: "Cancel")
-    
+
     // Create container for text view + hint
     let containerHeight: CGFloat = 150
     let container = NSView(frame: NSRect(x: 0, y: 0, width: 350, height: containerHeight))
-    
+
     // Create text view for multi-line input
     let scrollView = NSScrollView(frame: NSRect(x: 0, y: 26, width: 350, height: 120))
     scrollView.hasVerticalScroller = true
     scrollView.borderType = .bezelBorder
-    
+
     let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 350, height: 120))
     textView.isEditable = true
     textView.isRichText = false
     textView.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
     textView.autoresizingMask = [.width, .height]
-    
+
     // Pre-populate with existing arguments
     if let args = action.arguments {
       let lines = args.map { arg in
@@ -1314,35 +1320,38 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
       }
       textView.string = lines.joined(separator: "\n")
     }
-    
+
     scrollView.documentView = textView
     container.addSubview(scrollView)
-    
+
     // Add hint text at bottom (smaller, secondary color)
-    let hint = NSTextField(labelWithString: "To use arguments in your command or script, reference $1, $2, $3, etc.")
+    let hint = NSTextField(
+      labelWithString: "To use arguments in your command or script, reference $1, $2, $3, etc.")
     hint.font = NSFont.systemFont(ofSize: 11)
     hint.textColor = .secondaryLabelColor
     hint.frame = NSRect(x: 0, y: 4, width: 350, height: 16)
     container.addSubview(hint)
-    
+
     alert.accessoryView = container
     alert.window.initialFirstResponder = textView
-    
+
     let response = alert.runModal()
     if response == .alertFirstButtonReturn {
       // Parse the text into arguments
       let lines = textView.string.components(separatedBy: "\n")
         .map { $0.trimmingCharacters(in: .whitespaces) }
         .filter { !$0.isEmpty }
-      
+
       var newArgs: [ScriptArgument] = []
       for line in lines {
-        let parts = line.components(separatedBy: "|").map { $0.trimmingCharacters(in: .whitespaces) }
+        let parts = line.components(separatedBy: "|").map {
+          $0.trimmingCharacters(in: .whitespaces)
+        }
         let name = parts[0]
         let defaultValue = parts.count > 1 ? parts[1] : nil
         newArgs.append(ScriptArgument(name: name, defaultValue: defaultValue))
       }
-      
+
       action.arguments = newArgs.isEmpty ? nil : newArgs
       onChange?(.action(action))
       updateArgsButton(for: action)

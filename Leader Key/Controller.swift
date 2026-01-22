@@ -60,6 +60,7 @@ class Controller {
   }
 
   func show() {
+    AnimationGate.setUIVisible(true)
     Events.send(.willActivate)
 
     let screen = Defaults[.screen].getNSScreen() ?? NSScreen()
@@ -84,6 +85,7 @@ class Controller {
     Events.send(.willDeactivate)
 
     window.hide {
+      AnimationGate.setUIVisible(false)
       self.clear()
       afterClose?()
       Events.send(.didDeactivate)
@@ -148,7 +150,9 @@ class Controller {
     }
   }
 
-  func handleKey(_ key: String, withModifiers modifiers: NSEvent.ModifierFlags? = nil, execute: Bool = true) {
+  func handleKey(
+    _ key: String, withModifiers modifiers: NSEvent.ModifierFlags? = nil, execute: Bool = true
+  ) {
     if key == "?" {
       showCheatsheet()
       return
@@ -189,7 +193,7 @@ class Controller {
           }
         }
       }
-      // If execute is false, just stay visible showing the matched action
+    // If execute is false, just stay visible showing the matched action
     case .group(let group):
       if execute, let mods = modifiers, shouldRunGroupSequenceWithModifiers(mods) {
         hide {
@@ -333,7 +337,7 @@ class Controller {
     case .folder:
       let path: String = (action.value as NSString).expandingTildeInPath
       let folderURL = URL(fileURLWithPath: path)
-      
+
       if let openWithPath = action.openWith {
         // Open folder with specified application
         let appURL = URL(fileURLWithPath: openWithPath)
@@ -349,7 +353,7 @@ class Controller {
     case .file:
       let path: String = (action.value as NSString).expandingTildeInPath
       let fileURL = URL(fileURLWithPath: path)
-      
+
       if let openWithPath = action.openWith {
         // Open file with specified application
         let appURL = URL(fileURLWithPath: openWithPath)
@@ -372,12 +376,12 @@ class Controller {
       window.makeKeyAndOrderFront(nil)
     }
   }
-  
+
   private func runScript(_ action: Action) {
     guard let args = collectArgumentsIfNeeded(for: action) else { return }
     CommandRunner.runScript(path: action.value, arguments: args)
   }
-  
+
   private func runCommand(_ action: Action) {
     guard let args = collectArgumentsIfNeeded(for: action) else { return }
     var command = action.value
@@ -451,7 +455,7 @@ class Controller {
   private func clear() {
     userState.clear()
   }
-  
+
   /// Returns argument values, or nil if cancelled. Returns [] if no arguments defined.
   private func collectArgumentsIfNeeded(for action: Action) -> [String]? {
     guard let arguments = action.arguments, !arguments.isEmpty else { return [] }
@@ -460,7 +464,7 @@ class Controller {
 
   private func openURL(_ action: Action) {
     guard let args = collectArgumentsIfNeeded(for: action) else { return }
-    
+
     // Substitute $1, $2, etc. with argument values (URL encoded)
     var urlString = action.value
     for (index, value) in args.enumerated() {
@@ -468,7 +472,7 @@ class Controller {
       let encoded = value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? value
       urlString = urlString.replacingOccurrences(of: placeholder, with: encoded)
     }
-    
+
     guard let url = URL(string: urlString) else {
       showAlert(
         title: "Invalid URL", message: "Failed to parse URL: \(urlString)")

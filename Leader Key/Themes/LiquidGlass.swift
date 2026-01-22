@@ -1,5 +1,5 @@
-import SwiftUI
 import Defaults
+import SwiftUI
 
 enum LiquidGlass {
   static let cornerRadius: CGFloat = 20
@@ -74,6 +74,7 @@ enum LiquidGlass {
     let key: String
     var isHighlighted: Bool = false
     @State private var hasAppeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var glowOpacity: Double {
       isHighlighted ? 0.4 : 0.15
@@ -108,7 +109,9 @@ enum LiquidGlass {
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                   .stroke(
                     LinearGradient(
-                      colors: [badgeColor.opacity(borderOpacity), badgeColor.opacity(borderOpacity * 0.4)],
+                      colors: [
+                        badgeColor.opacity(borderOpacity), badgeColor.opacity(borderOpacity * 0.4),
+                      ],
                       startPoint: .top,
                       endPoint: .bottom
                     ),
@@ -119,9 +122,14 @@ enum LiquidGlass {
         )
         .scaleEffect(hasAppeared ? (isHighlighted ? 1.08 : 1.0) : 0.8)
         .opacity(hasAppeared ? 1 : 0)
-        .animation(AnimationPresets.selection, value: isHighlighted)
+        .gatedAnimation(
+          AnimationPresets.selection, value: isHighlighted, reduceMotion: reduceMotion
+        )
         .onAppear {
-          withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+          AnimationGate.withAnimation(
+            .spring(response: 0.4, dampingFraction: 0.6),
+            reduceMotion: reduceMotion
+          ) {
             hasAppeared = true
           }
         }
@@ -141,19 +149,22 @@ enum LiquidGlass {
         .blur(radius: 10)
         .scaleEffect(pulseScale)
         .opacity(isActive ? 1 : 0)
-        .onChange(of: isActive) { active in
-          if active { startPulse() }
-        }
-        .onAppear { if isActive { startPulse() } }
-    }
-
-    private func startPulse() {
-      pulseOpacity = 0.06
-      pulseScale = 1.0
-      withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
-        pulseOpacity = 0.15
-        pulseScale = 1.08
-      }
+        .repeatingAnimation(
+          isActive: isActive,
+          animation: .easeInOut(duration: 2.0).repeatForever(autoreverses: true),
+          prepare: {
+            pulseOpacity = 0.06
+            pulseScale = 1.0
+          },
+          onStart: {
+            pulseOpacity = 0.15
+            pulseScale = 1.08
+          },
+          onStop: {
+            pulseOpacity = 0.06
+            pulseScale = 1.0
+          }
+        )
     }
   }
 
@@ -162,6 +173,7 @@ enum LiquidGlass {
   struct SelectionHighlight: ViewModifier {
     let isSelected: Bool
     let isHovered: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(isSelected: Bool, isHovered: Bool = false) {
       self.isSelected = isSelected
@@ -189,9 +201,13 @@ enum LiquidGlass {
               .fill(
                 LinearGradient(
                   stops: [
-                    .init(color: highlightColor.opacity(isSelected ? 0.4 : (isHovered ? 0.15 : 0)), location: 0),
-                    .init(color: highlightColor.opacity(isSelected ? 0.15 : (isHovered ? 0.05 : 0)), location: 0.25),
-                    .init(color: .clear, location: 0.5)
+                    .init(
+                      color: highlightColor.opacity(isSelected ? 0.4 : (isHovered ? 0.15 : 0)),
+                      location: 0),
+                    .init(
+                      color: highlightColor.opacity(isSelected ? 0.15 : (isHovered ? 0.05 : 0)),
+                      location: 0.25),
+                    .init(color: .clear, location: 0.5),
                   ],
                   startPoint: .top,
                   endPoint: .bottom
@@ -203,10 +219,18 @@ enum LiquidGlass {
               .stroke(
                 LinearGradient(
                   stops: [
-                    .init(color: highlightColor.opacity(isSelected ? 0.7 : (isHovered ? 0.3 : 0)), location: 0),
-                    .init(color: highlightColor.opacity(isSelected ? 0.3 : (isHovered ? 0.12 : 0)), location: 0.3),
-                    .init(color: highlightColor.opacity(isSelected ? 0.2 : (isHovered ? 0.08 : 0)), location: 0.7),
-                    .init(color: highlightColor.opacity(isSelected ? 0.3 : (isHovered ? 0.12 : 0)), location: 1)
+                    .init(
+                      color: highlightColor.opacity(isSelected ? 0.7 : (isHovered ? 0.3 : 0)),
+                      location: 0),
+                    .init(
+                      color: highlightColor.opacity(isSelected ? 0.3 : (isHovered ? 0.12 : 0)),
+                      location: 0.3),
+                    .init(
+                      color: highlightColor.opacity(isSelected ? 0.2 : (isHovered ? 0.08 : 0)),
+                      location: 0.7),
+                    .init(
+                      color: highlightColor.opacity(isSelected ? 0.3 : (isHovered ? 0.12 : 0)),
+                      location: 1),
                   ],
                   startPoint: .top,
                   endPoint: .bottom
@@ -216,8 +240,8 @@ enum LiquidGlass {
           }
         )
         .scaleEffect(scale)
-        .animation(AnimationPresets.selection, value: isSelected)
-        .animation(AnimationPresets.hover, value: isHovered)
+        .gatedAnimation(AnimationPresets.selection, value: isSelected, reduceMotion: reduceMotion)
+        .gatedAnimation(AnimationPresets.hover, value: isHovered, reduceMotion: reduceMotion)
         .padding(.horizontal, -8)
         .padding(.vertical, -4)
     }
@@ -255,6 +279,7 @@ enum LiquidGlass {
     var onHover: ((Bool) -> Void)? = nil
     @Default(.showDetailsInCheatsheet) var showDetails
     @Default(.showAppIconsInCheatsheet) var showIcons
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
       InteractiveRow(isSelected: isSelected, onTap: onTap, onHover: onHover) { isHovered in
@@ -266,7 +291,8 @@ enum LiquidGlass {
             if showIcons {
               actionIcon(item: .action(action), iconSize: LiquidGlass.iconSize)
                 .opacity(isSelected ? 1 : 0.85)
-                .animation(AnimationPresets.selection, value: isSelected)
+                .gatedAnimation(
+                  AnimationPresets.selection, value: isSelected, reduceMotion: reduceMotion)
             }
 
             Text(action.displayName)
@@ -280,7 +306,7 @@ enum LiquidGlass {
               .lineLimit(1)
               .truncationMode(.middle)
               .opacity(isHovered || isSelected ? 0.9 : 0.6)
-              .animation(AnimationPresets.hover, value: isHovered)
+              .gatedAnimation(AnimationPresets.hover, value: isHovered, reduceMotion: reduceMotion)
           }
         }
       }
@@ -293,6 +319,7 @@ enum LiquidGlass {
     @Default(.expandGroupsInCheatsheet) var expand
     @Default(.showDetailsInCheatsheet) var showDetails
     @Default(.showAppIconsInCheatsheet) var showIcons
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let group: Group
     let indent: Int
@@ -310,14 +337,16 @@ enum LiquidGlass {
             if showIcons {
               actionIcon(item: .group(group), iconSize: LiquidGlass.iconSize)
                 .opacity(isSelected ? 1 : 0.85)
-                .animation(AnimationPresets.selection, value: isSelected)
+                .gatedAnimation(
+                  AnimationPresets.selection, value: isSelected, reduceMotion: reduceMotion)
             }
 
             Image(systemName: "chevron.right")
               .foregroundStyle(.secondary)
               .scaleEffect(isSelected ? 1.15 : 1.0)
               .offset(x: isSelected ? 2 : 0)
-              .animation(AnimationPresets.selection, value: isSelected)
+              .gatedAnimation(
+                AnimationPresets.selection, value: isSelected, reduceMotion: reduceMotion)
 
             Text(group.displayName)
 
@@ -328,7 +357,8 @@ enum LiquidGlass {
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .opacity(isHovered || isSelected ? 0.9 : 0.6)
-                .animation(AnimationPresets.hover, value: isHovered)
+                .gatedAnimation(
+                  AnimationPresets.hover, value: isHovered, reduceMotion: reduceMotion)
             }
           }
         }
@@ -356,6 +386,7 @@ enum LiquidGlass {
     @State private var animationTrigger = UUID()
     @State private var navigationDirection: NavigationDirection = .neutral
     @State private var previousPathCount: Int = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var maxHeight: CGFloat {
       NSScreen.main?.visibleFrame.height.advanced(by: -40) ?? 640
@@ -397,7 +428,7 @@ enum LiquidGlass {
         }
         .onChange(of: userState.selectedIndex) { newIndex in
           if let index = newIndex {
-            withAnimation(AnimationPresets.selection) {
+            AnimationGate.withAnimation(AnimationPresets.selection, reduceMotion: reduceMotion) {
               proxy.scrollTo(index, anchor: .center)
             }
           }
@@ -411,7 +442,8 @@ enum LiquidGlass {
       .onPreferenceChange(HeightPreferenceKey.self) { height in
         contentHeight = height
       }
-      .onReceive(NotificationCenter.default.publisher(for: LiquidGlass.windowDidShowNotification)) { _ in
+      .onReceive(NotificationCenter.default.publisher(for: LiquidGlass.windowDidShowNotification)) {
+        _ in
         triggerEntryAnimation(direction: .neutral)
       }
       .onDisappear {
@@ -440,7 +472,10 @@ enum LiquidGlass {
       // Generate new trigger to animate rows
       animationTrigger = UUID()
       // Animate header in immediately with spring animation
-      withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+      AnimationGate.withAnimation(
+        .spring(response: 0.3, dampingFraction: 0.75),
+        reduceMotion: reduceMotion
+      ) {
         headerVisible = true
       }
     }
@@ -464,7 +499,9 @@ enum LiquidGlass {
     private var actionRows: some View {
       ForEach(Array(actions.enumerated()), id: \.offset) { index, item in
         let isSelected = userState.selectedIndex == index
-        StaggeredEntry(index: index, animationTrigger: animationTrigger, direction: navigationDirection) {
+        StaggeredEntry(
+          index: index, animationTrigger: animationTrigger, direction: navigationDirection
+        ) {
           switch item {
           case .action(let action):
             ActionRow(
