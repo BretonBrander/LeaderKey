@@ -5,20 +5,6 @@ import SwiftUI
 enum Cheatsheet {
   private static let iconSize = NSSize(width: 24, height: 24)
 
-  struct SelectionHighlight: ViewModifier {
-    let isSelected: Bool
-
-    func body(content: Content) -> some SwiftUI.View {
-      content
-        .background(
-          RoundedRectangle(cornerRadius: 4, style: .continuous)
-            .fill(isSelected ? currentAccentColor().opacity(0.3) : Color.clear)
-            .padding(.horizontal, -4)
-            .padding(.vertical, -2)
-        )
-    }
-  }
-
   struct KeyBadge: SwiftUI.View {
     let key: String
 
@@ -37,9 +23,6 @@ enum Cheatsheet {
   struct ActionRow: SwiftUI.View {
     let action: Action
     let indent: Int
-    var isSelected: Bool = false
-    var onTap: (() -> Void)? = nil
-    var onHover: ((Bool) -> Void)? = nil
     @Default(.showDetailsInCheatsheet) var showDetails
     @Default(.showAppIconsInCheatsheet) var showIcons
 
@@ -67,10 +50,6 @@ enum Cheatsheet {
             .truncationMode(.middle)
         }
       }
-      .modifier(SelectionHighlight(isSelected: isSelected))
-      .contentShape(Rectangle())
-      .onHover { hovering in onHover?(hovering) }
-      .onTapGesture { onTap?() }
     }
   }
 
@@ -81,9 +60,6 @@ enum Cheatsheet {
 
     let group: Group
     let indent: Int
-    var isSelected: Bool = false
-    var onTap: (() -> Void)? = nil
-    var onHover: ((Bool) -> Void)? = nil
 
     var body: some SwiftUI.View {
       VStack(alignment: .leading, spacing: 4) {
@@ -110,10 +86,6 @@ enum Cheatsheet {
               .truncationMode(.middle)
           }
         }
-        .modifier(SelectionHighlight(isSelected: isSelected))
-        .contentShape(Rectangle())
-        .onHover { hovering in onHover?(hovering) }
-        .onTapGesture { onTap?() }
         if expand {
           ForEach(Array(group.actions.enumerated()), id: \.offset) { _, item in
             switch item {
@@ -156,61 +128,37 @@ enum Cheatsheet {
     }
 
     var body: some SwiftUI.View {
-      ScrollViewReader { proxy in
-        ScrollView {
-          SwiftUI.VStack(alignment: .leading, spacing: 4) {
-            if let group = userState.currentGroup {
-              HStack {
-                KeyBadge(key: group.key ?? "•")
-                Text(group.key == nil ? "Leader Key" : group.displayName)
-                  .foregroundStyle(.secondary)
-              }
+      ScrollView {
+        SwiftUI.VStack(alignment: .leading, spacing: 4) {
+          if let group = userState.currentGroup {
+            HStack {
+              KeyBadge(key: group.key ?? "•")
+              Text(group.key == nil ? "Leader Key" : group.displayName)
+                .foregroundStyle(.secondary)
+            }
+            .padding(.bottom, 8)
+            Divider()
               .padding(.bottom, 8)
-              Divider()
-                .padding(.bottom, 8)
-            }
+          }
 
-            ForEach(Array(actions.enumerated()), id: \.offset) { index, item in
-              let isSelected = userState.selectedIndex == index
-              switch item {
-              case .action(let action):
-                Cheatsheet.ActionRow(
-                  action: action,
-                  indent: 0,
-                  isSelected: isSelected,
-                  onTap: { userState.onItemTapped?(item) },
-                  onHover: { hovering in if hovering { userState.selectedIndex = index } }
-                )
-                .id(index)
-              case .group(let group):
-                Cheatsheet.GroupRow(
-                  group: group,
-                  indent: 0,
-                  isSelected: isSelected,
-                  onTap: { userState.onItemTapped?(item) },
-                  onHover: { hovering in if hovering { userState.selectedIndex = index } }
-                )
-                .id(index)
-              }
-            }
-          }
-          .padding()
-          .overlay(
-            GeometryReader { geo in
-              Color.clear.preference(
-                key: HeightPreferenceKey.self,
-                value: geo.size.height
-              )
-            }
-          )
-        }
-        .onChange(of: userState.selectedIndex) { newIndex in
-          if let index = newIndex {
-            withAnimation(.easeInOut(duration: 0.15)) {
-              proxy.scrollTo(index, anchor: .center)
+          ForEach(Array(actions.enumerated()), id: \.offset) { _, item in
+            switch item {
+            case .action(let action):
+              Cheatsheet.ActionRow(action: action, indent: 0)
+            case .group(let group):
+              Cheatsheet.GroupRow(group: group, indent: 0)
             }
           }
         }
+        .padding()
+        .overlay(
+          GeometryReader { geo in
+            Color.clear.preference(
+              key: HeightPreferenceKey.self,
+              value: geo.size.height
+            )
+          }
+        )
       }
       .frame(width: Cheatsheet.CheatsheetView.preferredWidth)
       .frame(height: min(contentHeight, maxHeight))
@@ -223,6 +171,12 @@ enum Cheatsheet {
     }
   }
 
+  struct HeightPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+      value = nextValue()
+    }
+  }
 
   static func createWindow(for userState: UserState) -> NSWindow {
     let view = CheatsheetView().environmentObject(userState)

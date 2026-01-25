@@ -81,7 +81,7 @@ private class OutlineController: NSObject, NSOutlineViewDataSource, NSOutlineVie
     outline.usesAlternatingRowBackgroundColors = false
     outline.style = .sourceList
     outline.allowsColumnReordering = false
-    outline.allowsMultipleSelection = true
+    outline.allowsMultipleSelection = false
     outline.intercellSpacing = NSSize(width: 0, height: 4)  // add spacing between rows
     outline.addTableColumn(column)
     outline.outlineTableColumn = column
@@ -216,32 +216,6 @@ private class OutlineController: NSObject, NSOutlineViewDataSource, NSOutlineVie
           outlineView.expandItem(node)
           self.saveCurrentExpandedState()
           self.propagateRootChange()
-        },
-        getSelectedNodes: { [weak self] in
-          return self?.selectedNodes() ?? []
-        },
-        onBulkDelete: { [weak self] in
-          guard let self else { return }
-          let nodes = self.selectedNodes()
-          for n in nodes { n.deleteFromParent() }
-          outlineView.reloadData()
-          self.propagateRootChange()
-        },
-        onBulkSetOpenWith: { [weak self] in
-          guard let self else { return }
-          self.handleBulkSetOpenWith()
-        },
-        onBulkSetAppIcon: { [weak self] in
-          guard let self else { return }
-          self.handleBulkSetAppIcon()
-        },
-        onBulkSetSymbol: { [weak self] symbol in
-          guard let self else { return }
-          self.handleBulkSetSymbol(symbol: symbol)
-        },
-        onBulkClearIcon: { [weak self] in
-          guard let self else { return }
-          self.handleBulkClearIcon()
         })
       return cell
     } else {
@@ -268,133 +242,9 @@ private class OutlineController: NSObject, NSOutlineViewDataSource, NSOutlineVie
           node.duplicateInParent()
           outlineView.reloadData()
           self.propagateRootChange()
-        },
-        getSelectedNodes: { [weak self] in
-          return self?.selectedNodes() ?? []
-        },
-        onBulkDelete: { [weak self] in
-          guard let self else { return }
-          let nodes = self.selectedNodes()
-          for n in nodes { n.deleteFromParent() }
-          outlineView.reloadData()
-          self.propagateRootChange()
-        },
-        onBulkSetOpenWith: { [weak self] in
-          guard let self else { return }
-          self.handleBulkSetOpenWith()
-        },
-        onBulkSetAppIcon: { [weak self] in
-          guard let self else { return }
-          self.handleBulkSetAppIcon()
-        },
-        onBulkSetSymbol: { [weak self] symbol in
-          guard let self else { return }
-          self.handleBulkSetSymbol(symbol: symbol)
-        },
-        onBulkClearIcon: { [weak self] in
-          guard let self else { return }
-          self.handleBulkClearIcon()
         })
       return cell
     }
-  }
-
-  /// Handles setting "open with" app for all selected action nodes that support it
-  private func handleBulkSetOpenWith() {
-    let nodes = selectedNodes()
-    let actionNodes = nodes.compactMap { node -> EditorNode? in
-      guard case .action(let action) = node.kind else { return nil }
-      // Only actions that support openWith (folder, file, url)
-      if action.type == .folder || action.type == .file || action.type == .url {
-        return node
-      }
-      return nil
-    }
-    guard !actionNodes.isEmpty else { return }
-
-    let panel = NSOpenPanel()
-    panel.allowedContentTypes = [.applicationBundle, .application]
-    panel.canChooseFiles = true
-    panel.canChooseDirectories = true
-    panel.allowsMultipleSelection = false
-    panel.directoryURL = URL(fileURLWithPath: "/Applications")
-    panel.message = "Choose an application to open \(actionNodes.count) item(s) with"
-    if panel.runModal() == .OK, let url = panel.url {
-      for node in actionNodes {
-        if case .action(var action) = node.kind {
-          action.openWith = url.path
-          node.kind = .action(action)
-        }
-      }
-      outline.reloadData()
-      propagateRootChange()
-    }
-  }
-
-  /// Handles setting app icon for all selected nodes
-  private func handleBulkSetAppIcon() {
-    let nodes = selectedNodes()
-    guard !nodes.isEmpty else { return }
-
-    let panel = NSOpenPanel()
-    panel.allowedContentTypes = [.applicationBundle, .application]
-    panel.canChooseFiles = true
-    panel.canChooseDirectories = true
-    panel.allowsMultipleSelection = false
-    panel.directoryURL = URL(fileURLWithPath: "/Applications")
-    panel.message = "Choose an application icon for \(nodes.count) item(s)"
-    if panel.runModal() == .OK, let url = panel.url {
-      for node in nodes {
-        switch node.kind {
-        case .action(var action):
-          action.iconPath = url.path
-          node.kind = .action(action)
-        case .group(var group):
-          group.iconPath = url.path
-          node.kind = .group(group)
-        }
-      }
-      outline.reloadData()
-      propagateRootChange()
-    }
-  }
-
-  /// Handles setting SF Symbol for all selected nodes
-  private func handleBulkSetSymbol(symbol: String) {
-    let nodes = selectedNodes()
-    guard !nodes.isEmpty else { return }
-
-    for node in nodes {
-      switch node.kind {
-      case .action(var action):
-        action.iconPath = symbol
-        node.kind = .action(action)
-      case .group(var group):
-        group.iconPath = symbol
-        node.kind = .group(group)
-      }
-    }
-    outline.reloadData()
-    propagateRootChange()
-  }
-
-  /// Handles clearing icons for all selected nodes
-  private func handleBulkClearIcon() {
-    let nodes = selectedNodes()
-    guard !nodes.isEmpty else { return }
-
-    for node in nodes {
-      switch node.kind {
-      case .action(var action):
-        action.iconPath = nil
-        node.kind = .action(action)
-      case .group(var group):
-        group.iconPath = nil
-        node.kind = .group(group)
-      }
-    }
-    outline.reloadData()
-    propagateRootChange()
   }
 
   func outlineView(_ outlineView: NSOutlineView, shouldEdit tableColumn: NSTableColumn?, item: Any)
@@ -441,11 +291,6 @@ private class OutlineController: NSObject, NSOutlineViewDataSource, NSOutlineVie
     // The SwiftUI binding will call back into `render` immediately; skip that pass so the outline keeps its current expansion state.
     skipNextRender = true
     onChange?(rootNode.toGroup())
-  }
-
-  /// Returns all currently selected nodes in the outline view
-  func selectedNodes() -> [EditorNode] {
-    return outline.selectedRowIndexes.compactMap { outline.item(atRow: $0) as? EditorNode }
   }
 
   // MARK: Persisted expansion state
@@ -674,19 +519,11 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
   private var iconButton = NSButton()
   private var valueStack = NSStackView()
   private var labelButton = NSButton()
-  private var openWithBtn = NSButton()
-  private var argsBtn = NSButton()
   private var moreBtn = NSButton()
 
   private var onChange: ((EditorPayload) -> Void)?
   private var onDelete: (() -> Void)?
   private var onDuplicate: (() -> Void)?
-  private var onBulkDelete: (() -> Void)?
-  private var onBulkSetOpenWith: (() -> Void)?
-  private var onBulkSetAppIcon: (() -> Void)?
-  private var onBulkSetSymbol: ((String) -> Void)?
-  private var onBulkClearIcon: (() -> Void)?
-  private var getSelectedNodes: (() -> [EditorNode])?
   private var node: EditorNode?
   private var currentValidationError: ValidationErrorType?
   private var symbolWindow: NSWindow?
@@ -710,7 +547,7 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
     keyButton.controlSize = .regular
     keyButton.widthAnchor.constraint(equalToConstant: Layout.keyWidth).isActive = true
     keyButton.wantsLayer = true
-    typePopup.addItems(withTitles: ["Application", "URL", "Command", "Folder", "File", "Script"])
+    typePopup.addItems(withTitles: ["Application", "URL", "Command", "Folder"])
     typePopup.controlSize = .regular
     typePopup.widthAnchor.constraint(equalToConstant: Layout.typeWidth).isActive = true
     valueStack.orientation = .horizontal
@@ -731,25 +568,14 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
     iconButton.imagePosition = .imageOnly
     iconButton.imageScaling = .scaleProportionallyDown
     iconButton.widthAnchor.constraint(equalToConstant: Layout.iconButtonWidth).isActive = true
-    openWithBtn.bezelStyle = .rounded
-    openWithBtn.controlSize = .regular
-    openWithBtn.imagePosition = .imageOnly
-    openWithBtn.imageScaling = .scaleProportionallyDown
-    openWithBtn.widthAnchor.constraint(equalToConstant: Layout.iconButtonWidth).isActive = true
-    openWithBtn.isHidden = true  // Only shown when openWith is set
-    argsBtn.title = "Args"
-    argsBtn.bezelStyle = .rounded
-    argsBtn.controlSize = .regular
-    argsBtn.widthAnchor.constraint(greaterThanOrEqualToConstant: 50).isActive = true
-    argsBtn.isHidden = true  // Only shown for script type
 
-    for view in [keyButton, typePopup, iconButton, labelButton, openWithBtn, argsBtn, moreBtn] {
+    for view in [keyButton, typePopup, iconButton, labelButton, moreBtn] {
       view.makeRigid()
     }
 
     valueStack.makeFlex()
 
-    for view in [keyButton, typePopup, iconButton, valueStack, labelButton, openWithBtn, argsBtn, moreBtn] {
+    for view in [keyButton, typePopup, iconButton, valueStack, labelButton, moreBtn] {
       container.addArrangedSubview(view)
     }
     addSubview(container)
@@ -775,40 +601,24 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
       }
     }
     moreBtn.targetClosure { [weak self] in self?.showMoreMenu(anchor: self?.moreBtn) }
-    openWithBtn.targetClosure { [weak self] in self?.showOpenWithMenu(anchor: self?.openWithBtn) }
-    argsBtn.targetClosure { [weak self] in self?.showArgumentsEditor() }
   }
 
   func configure(
     node: EditorNode, validationError: ValidationErrorType? = nil,
     onChange: @escaping (EditorPayload) -> Void, onDelete: @escaping () -> Void,
-    onDuplicate: @escaping () -> Void,
-    getSelectedNodes: @escaping () -> [EditorNode],
-    onBulkDelete: @escaping () -> Void,
-    onBulkSetOpenWith: @escaping () -> Void,
-    onBulkSetAppIcon: @escaping () -> Void,
-    onBulkSetSymbol: @escaping (String) -> Void,
-    onBulkClearIcon: @escaping () -> Void
+    onDuplicate: @escaping () -> Void
   ) {
     self.node = node
     self.currentValidationError = validationError
     self.onChange = onChange
     self.onDelete = onDelete
     self.onDuplicate = onDuplicate
-    self.getSelectedNodes = getSelectedNodes
-    self.onBulkDelete = onBulkDelete
-    self.onBulkSetOpenWith = onBulkSetOpenWith
-    self.onBulkSetAppIcon = onBulkSetAppIcon
-    self.onBulkSetSymbol = onBulkSetSymbol
-    self.onBulkClearIcon = onBulkClearIcon
     guard case .action(let action) = node.kind else { return }
 
     updateButtons(for: action)
     typePopup.selectItem(at: Self.index(for: action.type))
     rebuildValue(for: action)
     updateIcon(for: action)
-    updateOpenWithIcon(for: action)
-    updateArgsButton(for: action)
     updateValidationStyle(validationError)
   }
 
@@ -818,45 +628,10 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
   }
 
   private func showMoreMenu(anchor: NSView?) {
-    let selectedNodes = getSelectedNodes?() ?? []
-    let openWithCount = selectedNodes.filter { node in
-      guard case .action(let action) = node.kind else { return false }
-      return action.type == .folder || action.type == .file || action.type == .url
-    }.count
-
-    let action = currentAction()
-    let supportsOpenWith = action?.type == .folder || action?.type == .url || action?.type == .file
-
-    ConfigEditorUI.presentContextualMenu(
+    ConfigEditorUI.presentMoreMenu(
       anchor: anchor,
-      selectedCount: selectedNodes.count,
-      openWithCount: openWithCount,
       onDuplicate: { self.onDuplicate?() },
-      onDelete: { self.onDelete?() },
-      onSetOpenWith: supportsOpenWith ? { self.handlePickOpenWithApp() } : nil,
-      onClearOpenWith: supportsOpenWith && action?.openWith != nil ? { self.handleClearOpenWith() } : nil,
-      onBulkDelete: { self.onBulkDelete?() },
-      onBulkSetOpenWith: { self.onBulkSetOpenWith?() },
-      onBulkSetAppIcon: { self.onBulkSetAppIcon?() },
-      onBulkSetSymbol: { [weak self] in self?.showBulkSymbolPicker() },
-      onBulkClearIcon: { self.onBulkClearIcon?() }
-    )
-  }
-
-  private func showBulkSymbolPicker() {
-    guard let anchor = moreBtn as NSView? else { return }
-    presentSymbolPickerSheet(
-      anchor: anchor,
-      initial: nil,
-      owner: self,
-      getWindow: { self.symbolWindow },
-      setWindow: { self.symbolWindow = $0 },
-      getParent: { self.symbolParent },
-      setParent: { self.symbolParent = $0 },
-      onPicked: { [weak self] picked in
-        guard let self, let symbol = picked, !symbol.isEmpty else { return }
-        self.onBulkSetSymbol?(symbol)
-      }
+      onDelete: { self.onDelete?() }
     )
   }
 
@@ -918,10 +693,10 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
       }
       let label = Self.valueLabel(text: descriptor.display)
       for v in [choose, label] { valueStack.addArrangedSubview(v) }
-    case .prompt(let promptTitle, let hint):
+    case .prompt(let promptTitle):
       let edit = Self.editButton(width: Layout.chooserWidth)
       edit.targetClosure { [weak self] in
-        self?.promptText(title: promptTitle, initial: action.value, hint: hint) { text in
+        self?.promptText(title: promptTitle, initial: action.value) { text in
           guard var a = self?.currentAction() else { return }
           a.value = text
           self?.onChange?(.action(a))
@@ -937,7 +712,6 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
     guard let action = currentAction() else { return }
     onChange?(.action(action))
     rebuildValue(for: action)  // ensure value UI matches type after change
-    updateArgsButton(for: action)  // show/hide args button based on type
   }
 
   private struct ValueDescriptor {
@@ -948,7 +722,7 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
     }
     enum Kind {
       case picker(PickerConfig)
-      case prompt(String, hint: String? = nil)
+      case prompt(String)
     }
 
     let kind: Kind
@@ -970,27 +744,10 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
           allowedTypes: nil
         )
         return ValueDescriptor(kind: .picker(config), display: action.value)
-      case .file:
-        let config = PickerConfig(
-          buttonTitle: "Choose…",
-          chooseDirectories: false,
-          allowedTypes: nil
-        )
-        return ValueDescriptor(kind: .picker(config), display: action.value)
-      case .script:
-        let config = PickerConfig(
-          buttonTitle: "Choose…",
-          chooseDirectories: false,
-          allowedTypes: [.shellScript, .script]
-        )
-        return ValueDescriptor(kind: .picker(config), display: action.value)
       case .command:
         return ValueDescriptor(kind: .prompt("Command"), display: action.value)
       case .url:
-        return ValueDescriptor(
-          kind: .prompt("URL", hint: "Tip: Add Args to use $1, $2... placeholders"),
-          display: action.value
-        )
+        return ValueDescriptor(kind: .prompt("URL"), display: action.value)
       default:
         return ValueDescriptor(kind: .prompt("Value"), display: action.value)
       }
@@ -1042,10 +799,9 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
       panel.canChooseDirectories = chooseDir || allowsAppBundles
       panel.canChooseFiles = !chooseDir || allowsAppBundles
       if let types = allowedTypes { panel.allowedContentTypes = types }
-      // Start in /Applications only when selecting apps, otherwise use home directory
-      panel.directoryURL = allowsAppBundles
-        ? URL(fileURLWithPath: "/Applications")
-        : FileManager.default.homeDirectoryForCurrentUser
+      panel.directoryURL =
+        chooseDir
+        ? FileManager.default.homeDirectoryForCurrentUser : URL(fileURLWithPath: "/Applications")
       if panel.runModal() == .OK, let url = panel.url { picked(url) }
     }
     return b
@@ -1064,37 +820,22 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
     case .url: return 1
     case .command: return 2
     case .folder: return 3
-    case .file: return 4
-    case .script: return 5
     default: return 0
     }
   }
   private static func type(for idx: Int) -> Type {
-    [Type.application, .url, .command, .folder, .file, .script][max(0, min(5, idx))]
+    [Type.application, .url, .command, .folder][max(0, min(3, idx))]
   }
 
-  private func promptText(title: String, initial: String, hint: String? = nil, onOK: @escaping (String) -> Void) {
+  private func promptText(title: String, initial: String, onOK: @escaping (String) -> Void) {
     let alert = NSAlert()
     alert.messageText = title
     alert.addButton(withTitle: "OK")
     alert.addButton(withTitle: "Cancel")
     let field = NSTextField(string: initial)
-    
-    if let hint = hint {
-      let container = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 44))
-      field.frame = NSRect(x: 0, y: 18, width: 300, height: 22)
-      container.addSubview(field)
-      let hintLabel = NSTextField(labelWithString: hint)
-      hintLabel.font = NSFont.systemFont(ofSize: 11)
-      hintLabel.textColor = .secondaryLabelColor
-      hintLabel.frame = NSRect(x: 0, y: 0, width: 300, height: 14)
-      container.addSubview(hintLabel)
-      alert.accessoryView = container
-    } else {
-      field.frame = NSRect(x: 0, y: 0, width: 260, height: 22)
-      alert.accessoryView = field
-    }
-    
+    field.frame = NSRect(x: 0, y: 0, width: 260, height: 22)
+    alert.accessoryView = field
+    // Focus and select all when the dialog opens
     alert.window.initialFirstResponder = field
     field.selectText(nil)
     let response = alert.runModal()
@@ -1205,150 +946,6 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
     iconButton.image = action.resolvedIcon()
   }
 
-  // MARK: Open With helpers
-  private func handlePickOpenWithApp() {
-    guard var a = currentAction() else { return }
-    let panel = NSOpenPanel()
-    panel.allowedContentTypes = [.applicationBundle, .application]
-    panel.canChooseFiles = true
-    panel.canChooseDirectories = true
-    panel.allowsMultipleSelection = false
-    panel.directoryURL = URL(fileURLWithPath: "/Applications")
-    panel.message = "Choose an application to open this item with"
-    if panel.runModal() == .OK {
-      a.openWith = panel.url?.path
-      self.onChange?(.action(a))
-      self.updateOpenWithIcon(for: a)
-    }
-  }
-
-  private func handleClearOpenWith() {
-    guard var a = currentAction() else { return }
-    a.openWith = nil
-    self.onChange?(.action(a))
-    self.updateOpenWithIcon(for: a)
-  }
-
-  private func showOpenWithMenu(anchor: NSView?) {
-    guard let anchor else { return }
-    let menu = NSMenu()
-    menu.addItem(
-      withTitle: "Change Open With App…",
-      action: #selector(openWithMenuPickApp),
-      keyEquivalent: ""
-    )
-    menu.addItem(
-      withTitle: "Clear Open With",
-      action: #selector(openWithMenuClear),
-      keyEquivalent: ""
-    )
-    for item in menu.items { item.target = self }
-    let point = NSPoint(x: 0, y: anchor.bounds.height)
-    menu.popUp(positioning: nil, at: point, in: anchor)
-  }
-
-  @objc private func openWithMenuPickApp() {
-    handlePickOpenWithApp()
-  }
-
-  @objc private func openWithMenuClear() {
-    handleClearOpenWith()
-  }
-
-  private func updateOpenWithIcon(for action: Action) {
-    if let openWithPath = action.openWith, !openWithPath.isEmpty {
-      openWithBtn.isHidden = false
-      openWithBtn.image = NSWorkspace.shared.icon(forFile: openWithPath)
-      openWithBtn.toolTip = "Opens with: \((openWithPath as NSString).lastPathComponent)"
-    } else {
-      openWithBtn.isHidden = true
-      openWithBtn.image = nil
-      openWithBtn.toolTip = nil
-    }
-  }
-
-  // MARK: Script Arguments
-  private func updateArgsButton(for action: Action) {
-    // Show args button for script, command, and url types
-    argsBtn.isHidden = action.type != .script && action.type != .command && action.type != .url
-    
-    // Update button title to show argument count
-    if let args = action.arguments, !args.isEmpty {
-      argsBtn.title = "Args (\(args.count))"
-    } else {
-      argsBtn.title = "Args"
-    }
-  }
-
-  private func showArgumentsEditor() {
-    guard var action = currentAction() else { return }
-    
-    let alert = NSAlert()
-    alert.messageText = "Edit Optional Arguments"
-    alert.informativeText = "Enter arguments (one per line).\nFormat: name | default value"
-    alert.addButton(withTitle: "Save")
-    alert.addButton(withTitle: "Cancel")
-    
-    // Create container for text view + hint
-    let containerHeight: CGFloat = 150
-    let container = NSView(frame: NSRect(x: 0, y: 0, width: 350, height: containerHeight))
-    
-    // Create text view for multi-line input
-    let scrollView = NSScrollView(frame: NSRect(x: 0, y: 26, width: 350, height: 120))
-    scrollView.hasVerticalScroller = true
-    scrollView.borderType = .bezelBorder
-    
-    let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 350, height: 120))
-    textView.isEditable = true
-    textView.isRichText = false
-    textView.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
-    textView.autoresizingMask = [.width, .height]
-    
-    // Pre-populate with existing arguments
-    if let args = action.arguments {
-      let lines = args.map { arg in
-        if let defaultValue = arg.defaultValue, !defaultValue.isEmpty {
-          return "\(arg.name) | \(defaultValue)"
-        }
-        return arg.name
-      }
-      textView.string = lines.joined(separator: "\n")
-    }
-    
-    scrollView.documentView = textView
-    container.addSubview(scrollView)
-    
-    // Add hint text at bottom (smaller, secondary color)
-    let hint = NSTextField(labelWithString: "To use arguments in your command or script, reference $1, $2, $3, etc.")
-    hint.font = NSFont.systemFont(ofSize: 11)
-    hint.textColor = .secondaryLabelColor
-    hint.frame = NSRect(x: 0, y: 4, width: 350, height: 16)
-    container.addSubview(hint)
-    
-    alert.accessoryView = container
-    alert.window.initialFirstResponder = textView
-    
-    let response = alert.runModal()
-    if response == .alertFirstButtonReturn {
-      // Parse the text into arguments
-      let lines = textView.string.components(separatedBy: "\n")
-        .map { $0.trimmingCharacters(in: .whitespaces) }
-        .filter { !$0.isEmpty }
-      
-      var newArgs: [ScriptArgument] = []
-      for line in lines {
-        let parts = line.components(separatedBy: "|").map { $0.trimmingCharacters(in: .whitespaces) }
-        let name = parts[0]
-        let defaultValue = parts.count > 1 ? parts[1] : nil
-        newArgs.append(ScriptArgument(name: name, defaultValue: defaultValue))
-      }
-      
-      action.arguments = newArgs.isEmpty ? nil : newArgs
-      onChange?(.action(action))
-      updateArgsButton(for: action)
-    }
-  }
-
   // symbol picker presenting delegated to shared helper
 }
 
@@ -1371,12 +968,6 @@ private class GroupCellView: NSTableCellView, NSWindowDelegate {
   private var onChange: ((EditorPayload) -> Void)?
   private var onDelete: (() -> Void)?
   private var onDuplicate: (() -> Void)?
-  private var onBulkDelete: (() -> Void)?
-  private var onBulkSetOpenWith: (() -> Void)?
-  private var onBulkSetAppIcon: (() -> Void)?
-  private var onBulkSetSymbol: ((String) -> Void)?
-  private var onBulkClearIcon: (() -> Void)?
-  private var getSelectedNodes: (() -> [EditorNode])?
   private var currentValidationError: ValidationErrorType?
   private var onAddAction: (() -> Void)?
   private var onAddGroup: (() -> Void)?
@@ -1471,13 +1062,7 @@ private class GroupCellView: NSTableCellView, NSWindowDelegate {
     node: EditorNode, validationError: ValidationErrorType? = nil,
     onChange: @escaping (EditorPayload) -> Void, onDelete: @escaping () -> Void,
     onDuplicate: @escaping () -> Void, onAddAction: @escaping () -> Void,
-    onAddGroup: @escaping () -> Void,
-    getSelectedNodes: @escaping () -> [EditorNode],
-    onBulkDelete: @escaping () -> Void,
-    onBulkSetOpenWith: @escaping () -> Void,
-    onBulkSetAppIcon: @escaping () -> Void,
-    onBulkSetSymbol: @escaping (String) -> Void,
-    onBulkClearIcon: @escaping () -> Void
+    onAddGroup: @escaping () -> Void
   ) {
     self.node = node
     self.currentValidationError = validationError
@@ -1486,12 +1071,6 @@ private class GroupCellView: NSTableCellView, NSWindowDelegate {
     self.onDuplicate = onDuplicate
     self.onAddAction = onAddAction
     self.onAddGroup = onAddGroup
-    self.getSelectedNodes = getSelectedNodes
-    self.onBulkDelete = onBulkDelete
-    self.onBulkSetOpenWith = onBulkSetOpenWith
-    self.onBulkSetAppIcon = onBulkSetAppIcon
-    self.onBulkSetSymbol = onBulkSetSymbol
-    self.onBulkClearIcon = onBulkClearIcon
     guard case .group(let group) = node.kind else { return }
     updateButtons(for: group)
     updateIcon(for: group)
@@ -1714,41 +1293,10 @@ private class GroupCellView: NSTableCellView, NSWindowDelegate {
   }
 
   private func showMoreMenu(anchor: NSView?) {
-    let selectedNodes = getSelectedNodes?() ?? []
-    let openWithCount = selectedNodes.filter { node in
-      guard case .action(let action) = node.kind else { return false }
-      return action.type == .folder || action.type == .file || action.type == .url
-    }.count
-
-    // Groups don't support openWith for single item
-    ConfigEditorUI.presentContextualMenu(
+    ConfigEditorUI.presentMoreMenu(
       anchor: anchor,
-      selectedCount: selectedNodes.count,
-      openWithCount: openWithCount,
       onDuplicate: { self.onDuplicate?() },
-      onDelete: { self.onDelete?() },
-      onBulkDelete: { self.onBulkDelete?() },
-      onBulkSetOpenWith: { self.onBulkSetOpenWith?() },
-      onBulkSetAppIcon: { self.onBulkSetAppIcon?() },
-      onBulkSetSymbol: { [weak self] in self?.showBulkSymbolPicker() },
-      onBulkClearIcon: { self.onBulkClearIcon?() }
-    )
-  }
-
-  private func showBulkSymbolPicker() {
-    guard let anchor = moreBtn as NSView? else { return }
-    presentSymbolPickerSheet(
-      anchor: anchor,
-      initial: nil,
-      owner: self,
-      getWindow: { self.symbolWindow },
-      setWindow: { self.symbolWindow = $0 },
-      getParent: { self.symbolParent },
-      setParent: { self.symbolParent = $0 },
-      onPicked: { [weak self] picked in
-        guard let self, let symbol = picked, !symbol.isEmpty else { return }
-        self.onBulkSetSymbol?(symbol)
-      }
+      onDelete: { self.onDelete?() }
     )
   }
 }
@@ -1857,8 +1405,8 @@ extension NSControl {
   }
 }
 
-// MARK: - Symbol Picker
-
+// Popover lifecycle cleanup
+// No longer using popovers for symbol picking; presented as sheets/windows instead
 // Small SwiftUI bridge around the package view so we can observe changes
 private struct SymbolPickerBridge: View {
   @State var symbol: String?
@@ -1951,7 +1499,6 @@ private func presentSymbolPickerSheet(
     win.makeKeyAndOrderFront(nil)
   }
 }
-
 extension Notification.Name {
   static let lkExpandAll = Notification.Name("LKExpandAll")
   static let lkCollapseAll = Notification.Name("LKCollapseAll")

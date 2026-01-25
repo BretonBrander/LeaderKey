@@ -11,73 +11,13 @@ enum ConfigEditorUI {
     button.attributedTitle = attr
   }
 
-  /// Unified context menu that handles both single-item and multi-select scenarios.
-  /// Eliminates duplicate if/else branching in cell views.
-  static func presentContextualMenu(
-    anchor: NSView?,
-    selectedCount: Int,
-    openWithCount: Int,
-    // Single-item callbacks
-    onDuplicate: @escaping () -> Void,
-    onDelete: @escaping () -> Void,
-    onSetOpenWith: (() -> Void)? = nil,
-    onClearOpenWith: (() -> Void)? = nil,
-    // Bulk callbacks
-    onBulkDelete: @escaping () -> Void,
-    onBulkSetOpenWith: (() -> Void)?,
-    onBulkSetAppIcon: @escaping () -> Void,
-    onBulkSetSymbol: @escaping () -> Void,
-    onBulkClearIcon: @escaping () -> Void
-  ) {
-    if selectedCount > 1 {
-      presentBulkMoreMenu(
-        anchor: anchor,
-        count: selectedCount,
-        openWithCount: openWithCount,
-        onBulkSetOpenWith: openWithCount > 0 ? onBulkSetOpenWith : nil,
-        onBulkSetAppIcon: onBulkSetAppIcon,
-        onBulkSetSymbol: onBulkSetSymbol,
-        onBulkClearIcon: onBulkClearIcon,
-        onBulkDelete: onBulkDelete
-      )
-    } else {
-      presentMoreMenu(
-        anchor: anchor,
-        onSetOpenWith: onSetOpenWith,
-        onClearOpenWith: onClearOpenWith,
-        onDuplicate: onDuplicate,
-        onDelete: onDelete
-      )
-    }
-  }
-
   static func presentMoreMenu(
     anchor: NSView?,
-    onSetOpenWith: (() -> Void)? = nil,
-    onClearOpenWith: (() -> Void)? = nil,
     onDuplicate: @escaping () -> Void,
     onDelete: @escaping () -> Void
   ) {
     guard let anchor else { return }
     let menu = NSMenu()
-
-    // Add Open With options if provided
-    if onSetOpenWith != nil {
-      menu.addItem(
-        withTitle: "Set Open With App…",
-        action: #selector(MenuHandler.setOpenWith),
-        keyEquivalent: ""
-      )
-      if onClearOpenWith != nil {
-        menu.addItem(
-          withTitle: "Clear Open With",
-          action: #selector(MenuHandler.clearOpenWith),
-          keyEquivalent: ""
-        )
-      }
-      menu.addItem(NSMenuItem.separator())
-    }
-
     menu.addItem(
       withTitle: "Duplicate",
       action: #selector(MenuHandler.duplicate),
@@ -88,89 +28,8 @@ enum ConfigEditorUI {
       action: #selector(MenuHandler.delete),
       keyEquivalent: ""
     )
-    let handler = MenuHandler(
-      onSetOpenWith: onSetOpenWith,
-      onClearOpenWith: onClearOpenWith,
-      onDuplicate: onDuplicate,
-      onDelete: onDelete
-    )
+    let handler = MenuHandler(onDuplicate: onDuplicate, onDelete: onDelete)
     for item in menu.items { item.target = handler }
-    objc_setAssociatedObject(
-      menu,
-      &handlerAssociationKey,
-      handler,
-      .OBJC_ASSOCIATION_RETAIN_NONATOMIC
-    )
-    let point = NSPoint(x: 0, y: anchor.bounds.height)
-    menu.popUp(positioning: nil, at: point, in: anchor)
-  }
-
-  /// Presents a menu for bulk operations on multiple selected items
-  static func presentBulkMoreMenu(
-    anchor: NSView?,
-    count: Int,
-    openWithCount: Int,
-    onBulkSetOpenWith: (() -> Void)?,
-    onBulkSetAppIcon: @escaping () -> Void,
-    onBulkSetSymbol: @escaping () -> Void,
-    onBulkClearIcon: @escaping () -> Void,
-    onBulkDelete: @escaping () -> Void
-  ) {
-    guard let anchor else { return }
-    let menu = NSMenu()
-
-    // Icon submenu
-    let iconMenu = NSMenu()
-    iconMenu.addItem(
-      withTitle: "App Icon…",
-      action: #selector(MenuHandler.bulkSetAppIcon),
-      keyEquivalent: ""
-    )
-    iconMenu.addItem(
-      withTitle: "Symbol…",
-      action: #selector(MenuHandler.bulkSetSymbol),
-      keyEquivalent: ""
-    )
-    iconMenu.addItem(NSMenuItem.separator())
-    iconMenu.addItem(
-      withTitle: "Clear Icons",
-      action: #selector(MenuHandler.bulkClearIcon),
-      keyEquivalent: ""
-    )
-
-    let iconItem = NSMenuItem(title: "Set Icon for \(count) Items", action: nil, keyEquivalent: "")
-    iconItem.submenu = iconMenu
-    menu.addItem(iconItem)
-
-    // Add bulk Open With option if any selected items support it
-    if let onBulkSetOpenWith = onBulkSetOpenWith, openWithCount > 0 {
-      let title = openWithCount == count
-        ? "Set Open With App for \(count) Items…"
-        : "Set Open With App for \(openWithCount) of \(count) Items…"
-      menu.addItem(
-        withTitle: title,
-        action: #selector(MenuHandler.bulkSetOpenWith),
-        keyEquivalent: ""
-      )
-    }
-
-    menu.addItem(NSMenuItem.separator())
-
-    menu.addItem(
-      withTitle: "Delete \(count) Items",
-      action: #selector(MenuHandler.bulkDelete),
-      keyEquivalent: ""
-    )
-
-    let handler = MenuHandler(
-      onBulkSetOpenWith: onBulkSetOpenWith,
-      onBulkSetAppIcon: onBulkSetAppIcon,
-      onBulkSetSymbol: onBulkSetSymbol,
-      onBulkClearIcon: onBulkClearIcon,
-      onBulkDelete: onBulkDelete
-    )
-    for item in menu.items { item.target = handler }
-    for item in iconMenu.items { item.target = handler }
     objc_setAssociatedObject(
       menu,
       &handlerAssociationKey,
@@ -204,7 +63,9 @@ enum ConfigEditorUI {
     let handler = MenuHandler(
       onPickAppIcon: onPickAppIcon,
       onPickSymbol: onPickSymbol,
-      onClearIcon: onClear
+      onClearIcon: onClear,
+      onDuplicate: {},
+      onDelete: {}
     )
     for item in menu.items { item.target = handler }
     objc_setAssociatedObject(
@@ -219,62 +80,32 @@ enum ConfigEditorUI {
 
   private static var handlerAssociationKey: UInt8 = 0
 
-  /// Menu handler using action dictionary pattern for cleaner code.
   private final class MenuHandler: NSObject {
-    private enum Action: String {
-      case pickAppIcon, pickSymbol, clearIcon
-      case setOpenWith, clearOpenWith
-      case duplicate, delete
-      case bulkSetOpenWith, bulkSetAppIcon, bulkSetSymbol, bulkClearIcon, bulkDelete
-    }
+    let onPickAppIcon: (() -> Void)?
+    let onPickSymbol: (() -> Void)?
+    let onClearIcon: (() -> Void)?
+    let onDuplicate: () -> Void
+    let onDelete: () -> Void
 
-    private var actions: [Action: () -> Void] = [:]
-
-    private func register(_ action: Action, handler: @escaping () -> Void) {
-      actions[action] = handler
-    }
-
-    convenience init(
+    init(
       onPickAppIcon: (() -> Void)? = nil,
       onPickSymbol: (() -> Void)? = nil,
       onClearIcon: (() -> Void)? = nil,
-      onSetOpenWith: (() -> Void)? = nil,
-      onClearOpenWith: (() -> Void)? = nil,
-      onDuplicate: (() -> Void)? = nil,
-      onDelete: (() -> Void)? = nil,
-      onBulkSetOpenWith: (() -> Void)? = nil,
-      onBulkSetAppIcon: (() -> Void)? = nil,
-      onBulkSetSymbol: (() -> Void)? = nil,
-      onBulkClearIcon: (() -> Void)? = nil,
-      onBulkDelete: (() -> Void)? = nil
+      onDuplicate: @escaping () -> Void,
+      onDelete: @escaping () -> Void
     ) {
-      self.init()
-      if let h = onPickAppIcon { register(.pickAppIcon, handler: h) }
-      if let h = onPickSymbol { register(.pickSymbol, handler: h) }
-      if let h = onClearIcon { register(.clearIcon, handler: h) }
-      if let h = onSetOpenWith { register(.setOpenWith, handler: h) }
-      if let h = onClearOpenWith { register(.clearOpenWith, handler: h) }
-      if let h = onDuplicate { register(.duplicate, handler: h) }
-      if let h = onDelete { register(.delete, handler: h) }
-      if let h = onBulkSetOpenWith { register(.bulkSetOpenWith, handler: h) }
-      if let h = onBulkSetAppIcon { register(.bulkSetAppIcon, handler: h) }
-      if let h = onBulkSetSymbol { register(.bulkSetSymbol, handler: h) }
-      if let h = onBulkClearIcon { register(.bulkClearIcon, handler: h) }
-      if let h = onBulkDelete { register(.bulkDelete, handler: h) }
+      self.onPickAppIcon = onPickAppIcon
+      self.onPickSymbol = onPickSymbol
+      self.onClearIcon = onClearIcon
+      self.onDuplicate = onDuplicate
+      self.onDelete = onDelete
     }
 
-    @objc func pickAppIcon() { actions[.pickAppIcon]?() }
-    @objc func pickSymbol() { actions[.pickSymbol]?() }
-    @objc func clearIcon() { actions[.clearIcon]?() }
-    @objc func setOpenWith() { actions[.setOpenWith]?() }
-    @objc func clearOpenWith() { actions[.clearOpenWith]?() }
-    @objc func duplicate() { actions[.duplicate]?() }
-    @objc func delete() { actions[.delete]?() }
-    @objc func bulkSetOpenWith() { actions[.bulkSetOpenWith]?() }
-    @objc func bulkSetAppIcon() { actions[.bulkSetAppIcon]?() }
-    @objc func bulkSetSymbol() { actions[.bulkSetSymbol]?() }
-    @objc func bulkClearIcon() { actions[.bulkClearIcon]?() }
-    @objc func bulkDelete() { actions[.bulkDelete]?() }
+    @objc func pickAppIcon() { onPickAppIcon?() }
+    @objc func pickSymbol() { onPickSymbol?() }
+    @objc func clearIcon() { onClearIcon?() }
+    @objc func duplicate() { onDuplicate() }
+    @objc func delete() { onDelete() }
   }
 }
 
