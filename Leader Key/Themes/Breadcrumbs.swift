@@ -12,7 +12,21 @@ enum Breadcrumbs {
         contentRect: NSRect(x: 0, y: 0, width: 0, height: 0))
 
       let view = MainView().environmentObject(self.controller.userState)
-      contentView = NSHostingView(rootView: view)
+      let hostingView = DropEnabledHostingView(rootView: view)
+      
+      // Set up drag state callback
+      hostingView.onDragStateChange = { [weak self] isDragging in
+        DispatchQueue.main.async {
+          self?.controller.userState.isDraggingFile = isDragging
+        }
+      }
+      
+      // Set up drop callback
+      hostingView.onFileDrop = { [weak self] urls in
+        self?.handleFileDrop(urls: urls)
+      }
+      
+      contentView = hostingView
     }
 
     override func show(on screen: NSScreen, after: (() -> Void)? = nil) {

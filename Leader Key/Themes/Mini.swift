@@ -8,8 +8,26 @@ enum Mini {
     required init(controller: Controller) {
       let rect = NSRect(x: 0, y: 0, width: Mini.size, height: Mini.size)
       super.init(controller: controller, contentRect: rect)
-      let view = MainView().environmentObject(self.controller.userState)
-      contentView = NSHostingView(rootView: view)
+      let view = MainView()
+        .environmentObject(self.controller.userState)
+        .environmentObject(self.controller.userConfig)
+      
+      let hostingView = DropEnabledHostingView(rootView: view)
+      
+      // Set up drag state callback
+      hostingView.onDragStateChange = { [weak self] isDragging in
+        DispatchQueue.main.async {
+          self?.controller.userState.isDraggingFile = isDragging
+        }
+      }
+      
+      // Set up drop callback
+      hostingView.onFileDrop = { [weak self] urls in
+        print("🎯 Mini received \(urls.count) dropped file(s)")
+        self?.handleFileDrop(urls: urls)
+      }
+      
+      contentView = hostingView
     }
 
     override func show(on screen: NSScreen, after: (() -> Void)? = nil) {

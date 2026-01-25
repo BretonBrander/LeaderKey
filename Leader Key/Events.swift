@@ -10,6 +10,9 @@ enum EventKey {
   // Config
   case willReload
   case didReload
+
+  // Shortcuts
+  case shortcutsChanged
 }
 
 class Events {

@@ -1,4 +1,5 @@
 import Cocoa
+import Combine
 import Defaults
 import KeyboardShortcuts
 import Settings
@@ -21,23 +22,31 @@ class AppDelegate: NSObject, NSApplicationDelegate,
 
   var state: UserState!
   @IBOutlet var updaterController: SPUStandardUpdaterController!
+  private var eventsCancellable: AnyCancellable?
 
-  lazy var settingsWindowController = SettingsWindowController(
-    panes: [
-      Settings.Pane(
-        identifier: .general, title: "General",
-        toolbarIcon: NSImage(named: NSImage.preferencesGeneralName)!,
-        contentView: { GeneralPane().environmentObject(self.config) }
-      ),
-      Settings.Pane(
-        identifier: .advanced, title: "Advanced",
-        toolbarIcon: NSImage(named: NSImage.advancedName)!,
-        contentView: {
-          AdvancedPane().environmentObject(self.config)
-        }),
-    ],
-    style: .segmentedControl,
-  )
+  lazy var settingsWindowController: SettingsWindowController = {
+    let controller = SettingsWindowController(
+      panes: [
+        Settings.Pane(
+          identifier: .general, title: "General",
+          toolbarIcon: NSImage(named: NSImage.preferencesGeneralName)!,
+          contentView: { GeneralPane().environmentObject(self.config) }
+        ),
+        Settings.Pane(
+          identifier: .advanced, title: "Advanced",
+          toolbarIcon: NSImage(named: NSImage.advancedName)!,
+          contentView: {
+            AdvancedPane().environmentObject(self.config)
+          }),
+      ],
+      style: .segmentedControl
+    )
+    // Hide the duplicate labels under the segmented control
+    if let window = controller.window {
+      window.toolbar?.displayMode = .iconOnly
+    }
+    return controller
+  }()
 
   func applicationDidFinishLaunching(_: Notification) {
 
@@ -90,6 +99,13 @@ class AppDelegate: NSObject, NSApplicationDelegate,
     // Activation policy is managed solely by the Settings window
 
     registerGlobalShortcuts()
+
+    // Listen for shortcut changes from the editor
+    eventsCancellable = Events.sink { [weak self] event in
+      if event == .shortcutsChanged {
+        self?.registerGlobalShortcuts()
+      }
+    }
   }
 
   func activate() {
@@ -125,6 +141,9 @@ class AppDelegate: NSObject, NSApplicationDelegate,
         }
         self.processKeys([groupKey])
       }
+    }
+    if Defaults[.groupShortcuts].isEmpty && !KeyboardShortcuts.isEnabled(for: .activate) {
+      showSettings()
     }
   }
 
@@ -218,33 +237,37 @@ class AppDelegate: NSObject, NSApplicationDelegate,
   }
 
   private func handleURL(_ url: URL) {
-    guard url.scheme == "leaderkey" else { return }
+    let action = URLSchemeHandler.parse(url)
 
-    if url.host == "settings" {
+    switch action {
+    case .settings:
       showSettings()
-      return
-    }
-    if url.host == "about" {
+    case .about:
       NSApp.orderFrontStandardAboutPanel(nil)
+    case .configReload:
+      config.reloadFromFile()
+    case .configReveal:
+      NSWorkspace.shared.selectFile(config.path, inFileViewerRootedAtPath: "")
+    case .activate:
+      activate()
+    case .hide:
+      hide()
+    case .reset:
+      state.clear()
+    case .navigate(let keys, let execute):
+      show()
+      processKeys(keys, execute: execute)
+    case .show:
+      show()
+    case .invalid:
       return
-    }
-
-    show()
-
-    if url.host == "navigate",
-      let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-      let queryItems = components.queryItems,
-      let keysParam = queryItems.first(where: { $0.name == "keys" })?.value
-    {
-      let keys = keysParam.split(separator: ",").map(String.init)
-      processKeys(keys)
     }
   }
 
-  private func processKeys(_ keys: [String]) {
+  private func processKeys(_ keys: [String], execute: Bool = true) {
     guard !keys.isEmpty else { return }
 
-    controller.handleKey(keys[0])
+    controller.handleKey(keys[0], execute: execute)
 
     if keys.count > 1 {
       let remainingKeys = Array(keys.dropFirst())
@@ -252,7 +275,7 @@ class AppDelegate: NSObject, NSApplicationDelegate,
       var delayMs = 100
       for key in remainingKeys {
         delay(delayMs) { [weak self] in
-          self?.controller.handleKey(key)
+          self?.controller.handleKey(key, execute: execute)
         }
         delayMs += 100
       }
