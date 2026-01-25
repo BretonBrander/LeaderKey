@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import Defaults
 
 enum LiquidGlass {
@@ -25,7 +26,24 @@ enum LiquidGlass {
 
       let view = CheatsheetView()
         .environmentObject(self.controller.userState)
-      contentView = NSHostingView(rootView: view)
+        .environmentObject(self.controller.userConfig)
+      
+      let hostingView = DropEnabledHostingView(rootView: view)
+      
+      // Set up drag state callback
+      hostingView.onDragStateChange = { [weak self] isDragging in
+        DispatchQueue.main.async {
+          self?.controller.userState.isDraggingFile = isDragging
+        }
+      }
+      
+      // Set up drop callback
+      hostingView.onFileDrop = { [weak self] urls in
+        print("🎯 LiquidGlass received \(urls.count) dropped file(s)")
+        self?.handleFileDrop(urls: urls)
+      }
+      
+      contentView = hostingView
     }
 
     override func show(on screen: NSScreen, after: (() -> Void)? = nil) {
@@ -347,6 +365,64 @@ enum LiquidGlass {
     }
   }
 
+  // MARK: - Drop Zone Row
+
+  struct DropZoneRow: View {
+    var body: some View {
+      HStack(spacing: 10) {
+        Image(systemName: "arrow.down.doc.fill")
+          .foregroundStyle(highlightColor)
+          .font(.system(size: 16, weight: .semibold))
+        
+        Text("Drop file here to add")
+          .font(.system(.body, design: .rounded))
+          .fontWeight(.medium)
+          .foregroundStyle(highlightColor.opacity(0.9))
+        
+        Spacer()
+      }
+      .padding(.vertical, 10)
+      .padding(.horizontal, 12)
+      .background(
+        ZStack {
+          // Glass base with accent tint
+          RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(highlightColor.opacity(0.15))
+          
+          // Top specular highlight
+          RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(
+              LinearGradient(
+                stops: [
+                  .init(color: highlightColor.opacity(0.4), location: 0),
+                  .init(color: highlightColor.opacity(0.15), location: 0.25),
+                  .init(color: .clear, location: 0.5)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+              )
+            )
+          
+          // Edge glow
+          RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .stroke(
+              LinearGradient(
+                stops: [
+                  .init(color: highlightColor.opacity(0.7), location: 0),
+                  .init(color: highlightColor.opacity(0.3), location: 0.3),
+                  .init(color: highlightColor.opacity(0.2), location: 0.7),
+                  .init(color: highlightColor.opacity(0.3), location: 1)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+              ),
+              lineWidth: 1.5
+            )
+        }
+      )
+    }
+  }
+
   // MARK: - Main Cheatsheet View
 
   struct CheatsheetView: View {
@@ -384,8 +460,15 @@ enum LiquidGlass {
           VStack(alignment: .leading, spacing: 4) {
             header
             actionRows
+            
+            // Show drop zone when dragging
+            if userState.isDraggingFile {
+              DropZoneRow()
+                .padding(.top, 8)
+            }
           }
           .padding()
+          .coordinateSpace(name: "scrollContent")
           .overlay(
             GeometryReader { geo in
               Color.clear.preference(
@@ -459,36 +542,41 @@ enum LiquidGlass {
           .padding(.bottom, 8)
       }
     }
-
+    
     @ViewBuilder
     private var actionRows: some View {
-      ForEach(Array(actions.enumerated()), id: \.offset) { index, item in
-        let isSelected = userState.selectedIndex == index
-        StaggeredEntry(index: index, animationTrigger: animationTrigger, direction: navigationDirection) {
-          switch item {
-          case .action(let action):
-            ActionRow(
-              action: action,
-              indent: 0,
-              isSelected: isSelected,
-              onTap: { userState.onItemTapped?(item) },
-              onHover: { hovering in if hovering { userState.selectedIndex = index } }
-            )
-          case .group(let group):
-            GroupRow(
-              group: group,
-              indent: 0,
-              isSelected: isSelected,
-              onTap: { userState.onItemTapped?(item) },
-              onHover: { hovering in if hovering { userState.selectedIndex = index } }
-            )
-          }
-        }
-        .id("\(navigationKey)-\(index)")
+      ForEach(actions.indices, id: \.self) { index in
+        actionRow(at: index)
       }
     }
+    
+    @ViewBuilder
+    private func actionRow(at index: Int) -> some View {
+      let item = actions[index]
+      let isSelected = userState.selectedIndex == index
+      StaggeredEntry(index: index, animationTrigger: animationTrigger, direction: navigationDirection) {
+        switch item {
+        case .action(let action):
+          ActionRow(
+            action: action,
+            indent: 0,
+            isSelected: isSelected,
+            onTap: { userState.onItemTapped?(.action(action)) },
+            onHover: { hovering in if hovering { userState.selectedIndex = index } }
+          )
+        case .group(let group):
+          GroupRow(
+            group: group,
+            indent: 0,
+            isSelected: isSelected,
+            onTap: { userState.onItemTapped?(.group(group)) },
+            onHover: { hovering in if hovering { userState.selectedIndex = index } }
+          )
+        }
+      }
+      .id("\(navigationKey)-\(index)")
+    }
   }
-
 }
 
 struct LiquidGlass_Previews: PreviewProvider {

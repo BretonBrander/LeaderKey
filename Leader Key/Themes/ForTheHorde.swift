@@ -20,8 +20,25 @@ enum ForTheHorde {
 
       let view = MainView()
         .environmentObject(self.controller.userState)
+        .environmentObject(self.controller.userConfig)
         .environmentObject(animationState)
-      contentView = NSHostingView(rootView: view)
+      
+      let hostingView = DropEnabledHostingView(rootView: view)
+      
+      // Set up drag state callback
+      hostingView.onDragStateChange = { [weak self] isDragging in
+        DispatchQueue.main.async {
+          self?.controller.userState.isDraggingFile = isDragging
+        }
+      }
+      
+      // Set up drop callback
+      hostingView.onFileDrop = { [weak self] urls in
+        print("🎯 ForTheHorde received \(urls.count) dropped file(s)")
+        self?.handleFileDrop(urls: urls)
+      }
+      
+      contentView = hostingView
     }
 
     override func show(on screen: NSScreen, after: (() -> Void)? = nil) {

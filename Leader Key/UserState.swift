@@ -10,6 +10,7 @@ final class UserState: ObservableObject {
   @Published var navigationPath: [Group] = []
   @Published var selectedIndex: Int? = nil
   @Published var selectionHistory: [Int?] = []
+  @Published var isDraggingFile: Bool = false
 
   /// Callback for when an item is tapped in the cheatsheet
   var onItemTapped: ((ActionOrGroup) -> Void)?

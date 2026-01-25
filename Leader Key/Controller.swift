@@ -9,6 +9,7 @@ enum KeyHelpers: UInt16 {
   case space = 49
   case backspace = 51
   case escape = 53
+  case forwardDelete = 117
   case upArrow = 126
   case downArrow = 125
   case leftArrow = 123
@@ -24,6 +25,7 @@ class Controller {
   private var cheatsheetTimer: Timer?
 
   private var cancellables = Set<AnyCancellable>()
+  private(set) var isPerformingDeletion = false  // Flag to prevent window hiding during deletion
 
   init(userState: UserState, userConfig: UserConfig) {
     self.userState = userState
@@ -120,12 +122,22 @@ class Controller {
 
     switch event.keyCode {
     case KeyHelpers.backspace.rawValue:
-      clear()
-      delay(1) {
-        self.positionCheatsheetWindow()
+      // Only clear if Command is not pressed (Command+Delete is for deletion)
+      if !event.modifierFlags.contains(.command) {
+        clear()
+        delay(1) {
+          self.positionCheatsheetWindow()
+        }
+      } else {
+        // Command+Backspace: delete selected item
+        deleteSelectedItem()
       }
+    case KeyHelpers.forwardDelete.rawValue:
+      // Delete key: delete selected item (with or without Command)
+      deleteSelectedItem()
     case KeyHelpers.escape.rawValue:
       if userState.navigationPath.isEmpty {
+        window.shouldHideImmediately = true
         window.resignKey()
       } else {
         goBack()
@@ -514,6 +526,176 @@ class Controller {
     alert.alertStyle = .warning
     alert.addButton(withTitle: "OK")
     alert.runModal()
+  }
+  
+  private func deleteSelectedItem() {
+    guard let selectedItem = userState.selectedItem,
+          let selectedIndex = userState.selectedIndex else {
+      return
+    }
+    
+    // Set flag before showing dialog to prevent window hiding during deletion
+    isPerformingDeletion = true
+    defer { isPerformingDeletion = false }  // Always clear, even if cancelled
+    
+    // Show confirmation dialog
+    let itemName: String
+    switch selectedItem {
+    case .action(let action):
+      itemName = action.displayName
+    case .group(let group):
+      itemName = group.displayName
+    }
+    
+    let alert = NSAlert()
+    alert.messageText = "Delete \"\(itemName)\"?"
+    alert.informativeText = "This action cannot be undone."
+    alert.alertStyle = .warning
+    alert.addButton(withTitle: "Delete")
+    alert.addButton(withTitle: "Cancel")
+    
+    NSApp.activate(ignoringOtherApps: true)
+    let response = alert.runModal()
+    
+    if response == .alertFirstButtonReturn {
+      // User confirmed deletion
+      deleteItem(selectedItem, at: selectedIndex)
+      // Flag will be cleared by defer after deleteItem completes
+    }
+    // If cancelled, defer still clears the flag
+  }
+  
+  private func groupsMatch(_ g1: Group, _ g2: Group) -> Bool {
+    // Both must have same key (including both nil)
+    guard g1.key == g2.key else { return false }
+    
+    // Both must have same label (including both nil)
+    guard g1.label == g2.label else { return false }
+    
+    // If both key and label are nil, this is ambiguous - log warning
+    if g1.key == nil && g1.label == nil {
+      print("⚠️ Warning: Matching groups with nil key and label - may match incorrectly")
+    }
+    
+    return true
+  }
+  
+  private func validateNavigationPath() -> Bool {
+    var currentRoot = userConfig.root
+    for groupInPath in userState.navigationPath {
+      guard let groupIndex = currentRoot.actions.firstIndex(where: {
+        if case .group(let g) = $0 {
+          return groupsMatch(g, groupInPath)
+        }
+        return false
+      }) else {
+        print("⚠️ validateNavigationPath: Group in path not found in config - path may be stale")
+        return false
+      }
+      
+      if case .group(let nestedGroup) = currentRoot.actions[groupIndex] {
+        currentRoot = nestedGroup
+      } else {
+        return false
+      }
+    }
+    return true
+  }
+  
+  private func deleteItem(_ item: ActionOrGroup, at index: Int) {
+    let config = userConfig
+    let path = userState.navigationPath
+    
+    print("🗑️ deleteItem: Deleting item at index \(index), path length: \(path.count)")
+    
+    if path.isEmpty {
+      // Delete from root
+      var updatedRoot = config.root
+      if index >= 0 && index < updatedRoot.actions.count {
+        updatedRoot.actions.remove(at: index)
+        config.root = updatedRoot
+        userState.selectedIndex = nil
+        config.saveConfig()
+        print("✅ deleteItem: Successfully deleted from root")
+      } else {
+        print("❌ deleteItem: Index \(index) out of bounds for root (count: \(updatedRoot.actions.count))")
+        showAlert(title: "Deletion Failed", message: "Could not delete item: index out of bounds")
+      }
+    } else {
+      // Validate navigation path before attempting deletion
+      if !validateNavigationPath() {
+        print("⚠️ deleteItem: Navigation path is stale, clearing and retrying from root")
+        userState.navigationPath = []
+        // Fallback: try to delete from root if path is invalid
+        var updatedRoot = config.root
+        if index >= 0 && index < updatedRoot.actions.count {
+          updatedRoot.actions.remove(at: index)
+          config.root = updatedRoot
+          userState.selectedIndex = nil
+          config.saveConfig()
+          print("✅ deleteItem: Successfully deleted from root after path validation failed")
+        } else {
+          print("❌ deleteItem: Failed to delete after path validation")
+          showAlert(title: "Deletion Failed", message: "Could not delete item: navigation path is invalid.")
+        }
+        return
+      }
+      
+      // Delete from nested group
+      var updatedRoot = config.root
+      if deleteItemAtPath(path: path, index: index, root: &updatedRoot) {
+        config.root = updatedRoot
+        userState.selectedIndex = nil
+        config.saveConfig()
+        print("✅ deleteItem: Successfully deleted from nested group")
+      } else {
+        print("❌ deleteItem: Failed to delete from nested group")
+        showAlert(title: "Deletion Failed", message: "Could not delete item from nested group. Check console for details.")
+      }
+    }
+  }
+  
+  private func deleteItemAtPath(path: [Group], index: Int, root: inout Group) -> Bool {
+    guard !path.isEmpty else {
+      print("❌ deleteItemAtPath: path is empty")
+      return false
+    }
+    
+    func navigateAndDelete(path: [Group], root: inout Group) -> Bool {
+      if path.isEmpty {
+        // We're at the target group - delete the item here
+        guard index >= 0 && index < root.actions.count else {
+          print("❌ deleteItemAtPath: index \(index) out of bounds (count: \(root.actions.count))")
+          return false
+        }
+        root.actions.remove(at: index)
+        print("✅ deleteItemAtPath: Successfully deleted item at index \(index)")
+        return true
+      }
+      
+      // Navigate to the nested group
+      let targetGroupInPath = path[0]
+      guard let groupIndex = root.actions.firstIndex(where: {
+        if case .group(let g) = $0 {
+          return groupsMatch(g, targetGroupInPath)
+        }
+        return false
+      }) else {
+        print("❌ deleteItemAtPath: Could not find group with key=\(targetGroupInPath.key ?? "nil"), label=\(targetGroupInPath.label ?? "nil")")
+        return false
+      }
+      
+      if case .group(var nestedGroup) = root.actions[groupIndex] {
+        if navigateAndDelete(path: Array(path.dropFirst()), root: &nestedGroup) {
+          root.actions[groupIndex] = .group(nestedGroup)
+          return true
+        }
+      }
+      
+      return false
+    }
+    
+    return navigateAndDelete(path: path, root: &root)
   }
 }
 

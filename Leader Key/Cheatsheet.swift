@@ -127,6 +127,28 @@ enum Cheatsheet {
       }
     }
   }
+  
+  struct DropZoneRow: SwiftUI.View {
+    var body: some SwiftUI.View {
+      HStack(spacing: 8) {
+        Image(systemName: "arrow.down.doc.fill")
+          .foregroundStyle(currentAccentColor())
+        Text("Drop file here to add")
+          .fontWeight(.medium)
+        Spacer()
+      }
+      .padding(.vertical, 8)
+      .padding(.horizontal, 12)
+      .background(
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+          .fill(currentAccentColor().opacity(0.15))
+      )
+      .overlay(
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+          .stroke(currentAccentColor().opacity(0.4), lineWidth: 1.5)
+      )
+    }
+  }
 
   struct CheatsheetView: SwiftUI.View {
     @EnvironmentObject var userState: UserState
@@ -192,6 +214,12 @@ enum Cheatsheet {
                 )
                 .id(index)
               }
+            }
+            
+            // Show drop zone when dragging
+            if userState.isDraggingFile {
+              Cheatsheet.DropZoneRow()
+                .padding(.top, 8)
             }
           }
           .padding()

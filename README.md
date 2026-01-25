@@ -13,6 +13,10 @@ Watch the intro video on YouTube:
 
 *Yes, I only have that one thumbnail face.*
 
+**Fork features walkthrough:**
+
+<a href="https://youtu.be/cuVf-xjgaBM"><img src="https://img.youtube.com/vi/cuVf-xjgaBM/maxresdefault.jpg" width=480></a>
+
 ## Install
 
 📦 **[Download from GitHub Releases](https://github.com/BretonBrander/LeaderKey/releases)** — grab the `LeaderKey-X.X.dmg` file

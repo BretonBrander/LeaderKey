@@ -1,4 +1,6 @@
 import SwiftUI
+import UniformTypeIdentifiers
+import AppKit
 
 enum MysteryBox {
   static let size: CGFloat = 200
@@ -9,8 +11,27 @@ enum MysteryBox {
         controller: controller,
         contentRect: NSRect(x: 0, y: 0, width: MysteryBox.size, height: MysteryBox.size))
 
-      let view = MainView().environmentObject(self.controller.userState)
-      contentView = NSHostingView(rootView: view)
+      let view = MainView()
+        .environmentObject(self.controller.userState)
+        .environmentObject(self.controller.userConfig)
+      
+      // Use custom DropEnabledHostingView instead of regular NSHostingView
+      let hostingView = DropEnabledHostingView(rootView: view)
+      
+      // Set up drag state callback
+      hostingView.onDragStateChange = { [weak self] isDragging in
+        DispatchQueue.main.async {
+          self?.controller.userState.isDraggingFile = isDragging
+        }
+      }
+      
+      // Set up drop callback
+      hostingView.onFileDrop = { [weak self] urls in
+        print("🎯 MysteryBox received \(urls.count) dropped file(s)")
+        self?.handleFileDrop(urls: urls)
+      }
+      
+      contentView = hostingView
     }
 
     override func show(on screen: NSScreen, after: (() -> Void)? = nil) {
@@ -46,6 +67,7 @@ enum MysteryBox {
 
   struct MainView: View {
     @EnvironmentObject var userState: UserState
+    @EnvironmentObject var userConfig: UserConfig
 
     var body: some View {
       ZStack {
@@ -73,7 +95,10 @@ enum MysteryBox {
 
 struct MysteryBox_MainView_Previews: PreviewProvider {
   static var previews: some View {
-    MysteryBox.MainView().environmentObject(UserState(userConfig: UserConfig()))
+    let userConfig = UserConfig()
+    return MysteryBox.MainView()
+      .environmentObject(UserState(userConfig: userConfig))
+      .environmentObject(userConfig)
       .frame(width: MysteryBox.size, height: MysteryBox.size, alignment: .center)
   }
 }

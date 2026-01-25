@@ -4,7 +4,6 @@ import Defaults
 import KeyboardShortcuts
 import ObjectiveC
 import SwiftUI
-import SymbolPicker
 import UniformTypeIdentifiers
 
 // An ultra-smooth, virtualized AppKit editor using NSOutlineView.
@@ -45,9 +44,9 @@ struct ConfigOutlineEditorView: NSViewRepresentable {
   class Coordinator { fileprivate var controller: OutlineController? }
 }
 
-// MARK: - Controller
+// MARK: - Outline Controller
 
-private class OutlineController: NSObject, NSOutlineViewDataSource, NSOutlineViewDelegate {
+class OutlineController: NSObject, NSOutlineViewDataSource, NSOutlineViewDelegate {
   let outline = NSOutlineView()
   private let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("main"))
   private let actionID = NSUserInterfaceItemIdentifier("ActionCell")
@@ -71,7 +70,6 @@ private class OutlineController: NSObject, NSOutlineViewDataSource, NSOutlineVie
   private let dragType = NSPasteboard.PasteboardType("com.leaderkey.node")
   private var lastRenderedRoot: Group?
   private var validationCancellable: AnyCancellable?
-  /// Flags the next render call to skip a full reload because we already mutated `rootNode` locally.
   private var skipNextRender = false
 
   override init() {
@@ -82,15 +80,14 @@ private class OutlineController: NSObject, NSOutlineViewDataSource, NSOutlineVie
     outline.style = .sourceList
     outline.allowsColumnReordering = false
     outline.allowsMultipleSelection = true
-    outline.intercellSpacing = NSSize(width: 0, height: 4)  // add spacing between rows
+    outline.intercellSpacing = NSSize(width: 0, height: 4)
     outline.addTableColumn(column)
     outline.outlineTableColumn = column
     outline.delegate = self
     outline.dataSource = self
-    outline.registerForDraggedTypes([dragType])
+    outline.registerForDraggedTypes([dragType, .fileURL])
     outline.setDraggingSourceOperationMask(.move, forLocal: true)
 
-    // Expand/Collapse all via notifications from SwiftUI container
     let nc = NotificationCenter.default
     observers.append(
       nc.addObserver(forName: .lkExpandAll, object: nil, queue: .main) { [weak self] _ in
@@ -125,12 +122,8 @@ private class OutlineController: NSObject, NSOutlineViewDataSource, NSOutlineVie
     }
 
     if let last = lastRenderedRoot, last == root { return }
-    // Capture current expansions by IDs for stability across reorder/sort
     let expandedIDs = collectExpandedIDs()
-    // Also load persisted paths (for fresh launches)
     let savedPaths = loadExpandedState() ?? Set<String>()
-
-    // Save scroll position before reload
     let scrollPosition = outline.enclosingScrollView?.documentVisibleRect.origin ?? .zero
 
     rootNode = EditorNode.from(group: root)
@@ -146,7 +139,6 @@ private class OutlineController: NSObject, NSOutlineViewDataSource, NSOutlineVie
     didApplyInitialExpansion = true
     lastRenderedRoot = root
 
-    // Restore scroll position after reload
     DispatchQueue.main.async {
       self.outline.enclosingScrollView?.documentView?.scroll(scrollPosition)
       self.applyValidationErrors()
@@ -299,12 +291,10 @@ private class OutlineController: NSObject, NSOutlineViewDataSource, NSOutlineVie
     }
   }
 
-  /// Handles setting "open with" app for all selected action nodes that support it
   private func handleBulkSetOpenWith() {
     let nodes = selectedNodes()
     let actionNodes = nodes.compactMap { node -> EditorNode? in
       guard case .action(let action) = node.kind else { return nil }
-      // Only actions that support openWith (folder, file, url)
       if action.type == .folder || action.type == .file || action.type == .url {
         return node
       }
@@ -331,7 +321,6 @@ private class OutlineController: NSObject, NSOutlineViewDataSource, NSOutlineVie
     }
   }
 
-  /// Handles setting app icon for all selected nodes
   private func handleBulkSetAppIcon() {
     let nodes = selectedNodes()
     guard !nodes.isEmpty else { return }
@@ -359,7 +348,6 @@ private class OutlineController: NSObject, NSOutlineViewDataSource, NSOutlineVie
     }
   }
 
-  /// Handles setting SF Symbol for all selected nodes
   private func handleBulkSetSymbol(symbol: String) {
     let nodes = selectedNodes()
     guard !nodes.isEmpty else { return }
@@ -378,7 +366,6 @@ private class OutlineController: NSObject, NSOutlineViewDataSource, NSOutlineVie
     propagateRootChange()
   }
 
-  /// Handles clearing icons for all selected nodes
   private func handleBulkClearIcon() {
     let nodes = selectedNodes()
     guard !nodes.isEmpty else { return }
@@ -400,7 +387,6 @@ private class OutlineController: NSObject, NSOutlineViewDataSource, NSOutlineVie
   func outlineView(_ outlineView: NSOutlineView, shouldEdit tableColumn: NSTableColumn?, item: Any)
     -> Bool
   {
-    // Allow text fields inside cells to begin editing
     return true
   }
 
@@ -413,7 +399,6 @@ private class OutlineController: NSObject, NSOutlineViewDataSource, NSOutlineVie
     outline.collapseItem(nil, collapseChildren: true)
   }
 
-  /// Mirrors the latest validation state into the visible outline row views.
   private func applyValidationErrors() {
     guard let userConfig else { return }
 
@@ -438,18 +423,16 @@ private class OutlineController: NSObject, NSOutlineViewDataSource, NSOutlineVie
   }
 
   private func propagateRootChange() {
-    // The SwiftUI binding will call back into `render` immediately; skip that pass so the outline keeps its current expansion state.
     skipNextRender = true
     onChange?(rootNode.toGroup())
   }
 
-  /// Returns all currently selected nodes in the outline view
   func selectedNodes() -> [EditorNode] {
     return outline.selectedRowIndexes.compactMap { outline.item(atRow: $0) as? EditorNode }
   }
 
   // MARK: Persisted expansion state
-  private func indexPath(for node: EditorNode) -> [Int]? {
+  func indexPath(for node: EditorNode) -> [Int]? {
     var path: [Int] = []
     var current: EditorNode? = node
     while let n = current, let p = n.parent {
@@ -457,7 +440,6 @@ private class OutlineController: NSObject, NSOutlineViewDataSource, NSOutlineVie
       path.insert(idx, at: 0)
       current = p
     }
-    // If current has no parent, n is root; paths are from root's children
     return path
   }
 
@@ -512,8 +494,7 @@ private class OutlineController: NSObject, NSOutlineViewDataSource, NSOutlineVie
   }
 
   private func restoreExpandedState(_ saved: Set<String>) {
-    // After reload, items are collapsed; just expand saved nodes.
-    for key in saved.sorted() {  // deterministic order
+    for key in saved.sorted() {
       let path = decode(path: key)
       if let n = node(at: path) { outline.expandItem(n, expandChildren: false) }
     }
@@ -552,20 +533,72 @@ private class OutlineController: NSObject, NSOutlineViewDataSource, NSOutlineVie
     _ outlineView: NSOutlineView, validateDrop info: NSDraggingInfo, proposedItem item: Any?,
     proposedChildIndex index: Int
   ) -> NSDragOperation {
-    // Be permissive; we will normalize the target in acceptDrop
+    if info.draggingPasteboard.canReadObject(
+      forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true])
+    {
+      return .copy
+    }
     return .move
   }
 
   func outlineView(
     _ outlineView: NSOutlineView, acceptDrop info: NSDraggingInfo, item: Any?, childIndex: Int
   ) -> Bool {
+    if let urls = info.draggingPasteboard.readObjects(
+      forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty
+    {
+      return handleFileDrop(urls: urls, item: item, childIndex: childIndex)
+    }
+
     guard let str = info.draggingPasteboard.string(forType: dragType),
       let dragged = findNode(by: str)
     else { return false }
 
-    // Normalize drop target: drop into groups; otherwise drop next to the leaf within its parent
+    let (targetParent, insertIndex) = normalizeDropTarget(item: item, childIndex: childIndex)
+    let snapshotIDs = collectExpandedIDs()
+
+    guard let oldParent = dragged.parent,
+      let oldIndex = oldParent.children.firstIndex(where: { $0 === dragged })
+    else { return false }
+
+    var ancestor: EditorNode? = targetParent
+    while let a = ancestor {
+      if a === dragged { return false }
+      ancestor = a.parent
+    }
+    oldParent.children.remove(at: oldIndex)
+
+    var finalIndex = insertIndex
+    if oldParent === targetParent && oldIndex < insertIndex { finalIndex -= 1 }
+
+    dragged.parent = targetParent
+    finalIndex = max(0, min(targetParent.children.count, finalIndex))
+    targetParent.children.insert(dragged, at: finalIndex)
+
+    finalizeDropOperation(restoringExpansion: snapshotIDs)
+    return true
+  }
+
+  private func handleFileDrop(urls: [URL], item: Any?, childIndex: Int) -> Bool {
+    let (targetParent, insertIndex) = normalizeDropTarget(item: item, childIndex: childIndex)
+    let snapshotIDs = collectExpandedIDs()
+
+    for (offset, url) in urls.enumerated() {
+      let action = Action.createFrom(url: url)
+      let node = EditorNode.action(action, parent: targetParent)
+      let idx = max(0, min(targetParent.children.count, insertIndex + offset))
+      targetParent.children.insert(node, at: idx)
+    }
+
+    finalizeDropOperation(restoringExpansion: snapshotIDs)
+    return true
+  }
+
+  private func normalizeDropTarget(item: Any?, childIndex: Int) -> (parent: EditorNode, index: Int)
+  {
     var targetParent: EditorNode
     var insertIndex = childIndex
+
     if let target = item as? EditorNode {
       if target.isGroup {
         targetParent = target
@@ -573,7 +606,6 @@ private class OutlineController: NSObject, NSOutlineViewDataSource, NSOutlineVie
       } else {
         targetParent = target.parent ?? rootNode
         if insertIndex == NSOutlineViewDropOnItemIndex {
-          // Dropped "on" a leaf; place after it
           insertIndex =
             (targetParent.children.firstIndex(where: { $0 === target })
               ?? targetParent.children.count) + 1
@@ -584,35 +616,14 @@ private class OutlineController: NSObject, NSOutlineViewDataSource, NSOutlineVie
       if insertIndex == NSOutlineViewDropOnItemIndex { insertIndex = targetParent.children.count }
     }
 
-    // Snapshot expansion state
-    let snapshotIDs = collectExpandedIDs()
+    return (targetParent, insertIndex)
+  }
 
-    // Remove from old parent
-    guard let oldParent = dragged.parent,
-      let oldIndex = oldParent.children.firstIndex(where: { $0 === dragged })
-    else { return false }
-
-    // Prevent moving a node into its own descendant
-    var ancestor: EditorNode? = targetParent
-    while let a = ancestor {
-      if a === dragged { return false }
-      ancestor = a.parent
-    }
-    oldParent.children.remove(at: oldIndex)
-
-    // Adjust index if moving within same parent and removing an earlier index
-    if oldParent === targetParent && oldIndex < insertIndex { insertIndex -= 1 }
-
-    // Insert at target
-    dragged.parent = targetParent
-    insertIndex = max(0, min(targetParent.children.count, insertIndex))
-    targetParent.children.insert(dragged, at: insertIndex)
-
+  private func finalizeDropOperation(restoringExpansion snapshotIDs: Set<UUID>) {
     outline.reloadData()
     restoreExpandedByIDs(snapshotIDs)
     saveCurrentExpandedState()
     propagateRootChange()
-    return true
   }
 
   private func findNode(by idString: String) -> EditorNode? {
@@ -633,7 +644,7 @@ private class OutlineController: NSObject, NSOutlineViewDataSource, NSOutlineVie
       node.children.sort(by: { a, b in
         let ka = keyString(for: a)
         let kb = keyString(for: b)
-        if ka.isEmpty != kb.isEmpty { return !ka.isEmpty }  // non-empty first
+        if ka.isEmpty != kb.isEmpty { return !ka.isEmpty }
         return ka.localizedCaseInsensitiveCompare(kb) == .orderedAscending
       })
     }
@@ -650,16 +661,12 @@ private class OutlineController: NSObject, NSOutlineViewDataSource, NSOutlineVie
     case .group(let g): return g.key ?? ""
     }
   }
+
 }
 
-// MARK: - Row Views
+// MARK: - Action Cell View
 
-private enum EditorPayload {
-  case action(Action)
-  case group(Group)
-}
-
-private class ActionCellView: NSTableCellView, NSWindowDelegate {
+class ActionCellView: NSTableCellView, SymbolSheetHost {
   private enum Layout {
     static let keyWidth: CGFloat = 28
     static let typeWidth: CGFloat = 110
@@ -669,6 +676,7 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
     static let iconButtonWidth: CGFloat = 28
     static let iconSize: CGFloat = 24
   }
+
   private var keyButton = NSButton()
   private var typePopup = NSPopUpButton()
   private var iconButton = NSButton()
@@ -689,8 +697,9 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
   private var getSelectedNodes: (() -> [EditorNode])?
   private var node: EditorNode?
   private var currentValidationError: ValidationErrorType?
-  private var symbolWindow: NSWindow?
-  private weak var symbolParent: NSWindow?
+  var symbolWindow: NSWindow?
+  weak var symbolParent: NSWindow?
+  private var keyMonitor: Any?
 
   convenience init(identifier: NSUserInterfaceItemIdentifier) {
     self.init(frame: .zero)
@@ -717,7 +726,7 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
     valueStack.spacing = 6
     labelButton.bezelStyle = .rounded
     labelButton.controlSize = .regular
-    do {  // Ensure minimum width to prevent text from being cut off
+    do {
       let minConstraint = labelButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 60)
       minConstraint.priority = .required
       minConstraint.isActive = true
@@ -736,12 +745,12 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
     openWithBtn.imagePosition = .imageOnly
     openWithBtn.imageScaling = .scaleProportionallyDown
     openWithBtn.widthAnchor.constraint(equalToConstant: Layout.iconButtonWidth).isActive = true
-    openWithBtn.isHidden = true  // Only shown when openWith is set
+    openWithBtn.isHidden = true
     argsBtn.title = "Args"
     argsBtn.bezelStyle = .rounded
     argsBtn.controlSize = .regular
     argsBtn.widthAnchor.constraint(greaterThanOrEqualToConstant: 50).isActive = true
-    argsBtn.isHidden = true  // Only shown for script type
+    argsBtn.isHidden = true
 
     for view in [keyButton, typePopup, iconButton, labelButton, openWithBtn, argsBtn, moreBtn] {
       view.makeRigid()
@@ -749,19 +758,19 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
 
     valueStack.makeFlex()
 
-    for view in [keyButton, typePopup, iconButton, valueStack, labelButton, openWithBtn, argsBtn, moreBtn] {
+    for view in [
+      keyButton, typePopup, iconButton, valueStack, labelButton, openWithBtn, argsBtn, moreBtn,
+    ] {
       container.addArrangedSubview(view)
     }
     addSubview(container)
     NSLayoutConstraint.activate([
-      // Leave a small drag gutter so drags can start even when row is full of controls
       container.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
       container.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
       container.topAnchor.constraint(equalTo: topAnchor, constant: 2),
       container.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -2),
     ])
 
-    // Actions
     keyButton.targetClosure { [weak self] in self?.beginKeyCapture() }
     typePopup.targetClosure { [weak self] in self?.propagate() }
     iconButton.targetClosure { [weak self] in self?.showIconMenu(anchor: self?.iconButton) }
@@ -817,6 +826,13 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
     updateValidationStyle(error)
   }
 
+  func windowShouldClose(_ sender: NSWindow) -> Bool {
+    (sender.sheetParent ?? symbolParent)?.endSheet(sender)
+    symbolWindow = nil
+    symbolParent = nil
+    return true
+  }
+
   private func showMoreMenu(anchor: NSView?) {
     let selectedNodes = getSelectedNodes?() ?? []
     let openWithCount = selectedNodes.filter { node in
@@ -834,7 +850,8 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
       onDuplicate: { self.onDuplicate?() },
       onDelete: { self.onDelete?() },
       onSetOpenWith: supportsOpenWith ? { self.handlePickOpenWithApp() } : nil,
-      onClearOpenWith: supportsOpenWith && action?.openWith != nil ? { self.handleClearOpenWith() } : nil,
+      onClearOpenWith: supportsOpenWith && action?.openWith != nil
+        ? { self.handleClearOpenWith() } : nil,
       onBulkDelete: { self.onBulkDelete?() },
       onBulkSetOpenWith: { self.onBulkSetOpenWith?() },
       onBulkSetAppIcon: { self.onBulkSetAppIcon?() },
@@ -845,19 +862,10 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
 
   private func showBulkSymbolPicker() {
     guard let anchor = moreBtn as NSView? else { return }
-    presentSymbolPickerSheet(
-      anchor: anchor,
-      initial: nil,
-      owner: self,
-      getWindow: { self.symbolWindow },
-      setWindow: { self.symbolWindow = $0 },
-      getParent: { self.symbolParent },
-      setParent: { self.symbolParent = $0 },
-      onPicked: { [weak self] picked in
-        guard let self, let symbol = picked, !symbol.isEmpty else { return }
-        self.onBulkSetSymbol?(symbol)
-      }
-    )
+    presentSymbolPickerSheet(anchor: anchor, initial: nil, host: self) { [weak self] picked in
+      guard let self, let symbol = picked, !symbol.isEmpty else { return }
+      self.onBulkSetSymbol?(symbol)
+    }
   }
 
   private func updateButtons(for action: Action) {
@@ -873,29 +881,20 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
 
   private func updateValidationStyle(_ error: ValidationErrorType?) {
     updateRowBackground(error)
-
-    // Don't override blue background when listening for keys
     guard keyMonitor == nil else { return }
 
     if error != nil {
-      // Add subtle red border to indicate validation error
       keyButton.layer?.borderColor = NSColor.systemRed.cgColor
       keyButton.layer?.borderWidth = 1.0
       keyButton.layer?.cornerRadius = 4.0
     } else {
-      // Remove validation error styling
       keyButton.layer?.borderColor = NSColor.clear.cgColor
       keyButton.layer?.borderWidth = 0.0
     }
   }
 
   private func updateRowBackground(_ error: ValidationErrorType?) {
-    let color: NSColor?
-    if error != nil {
-      color = NSColor.systemRed.withAlphaComponent(0.08)
-    } else {
-      color = nil
-    }
+    let color: NSColor? = error != nil ? NSColor.systemRed.withAlphaComponent(0.08) : nil
     layer?.backgroundColor = color?.cgColor
   }
 
@@ -936,8 +935,8 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
   private func propagate() {
     guard let action = currentAction() else { return }
     onChange?(.action(action))
-    rebuildValue(for: action)  // ensure value UI matches type after change
-    updateArgsButton(for: action)  // show/hide args button based on type
+    rebuildValue(for: action)
+    updateArgsButton(for: action)
   }
 
   private struct ValueDescriptor {
@@ -957,40 +956,33 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
     static func forAction(_ action: Action) -> ValueDescriptor {
       switch action.type {
       case .application:
-        let config = PickerConfig(
-          buttonTitle: "Choose…",
-          chooseDirectories: false,
-          allowedTypes: [.application, .applicationBundle]
-        )
-        return ValueDescriptor(kind: .picker(config), display: action.value)
+        return ValueDescriptor(
+          kind: .picker(
+            PickerConfig(
+              buttonTitle: "Choose…", chooseDirectories: false,
+              allowedTypes: [.application, .applicationBundle])), display: action.value)
       case .folder:
-        let config = PickerConfig(
-          buttonTitle: "Choose…",
-          chooseDirectories: true,
-          allowedTypes: nil
-        )
-        return ValueDescriptor(kind: .picker(config), display: action.value)
+        return ValueDescriptor(
+          kind: .picker(
+            PickerConfig(buttonTitle: "Choose…", chooseDirectories: true, allowedTypes: nil)),
+          display: action.value)
       case .file:
-        let config = PickerConfig(
-          buttonTitle: "Choose…",
-          chooseDirectories: false,
-          allowedTypes: nil
-        )
-        return ValueDescriptor(kind: .picker(config), display: action.value)
+        return ValueDescriptor(
+          kind: .picker(
+            PickerConfig(buttonTitle: "Choose…", chooseDirectories: false, allowedTypes: nil)),
+          display: action.value)
       case .script:
-        let config = PickerConfig(
-          buttonTitle: "Choose…",
-          chooseDirectories: false,
-          allowedTypes: [.shellScript, .script]
-        )
-        return ValueDescriptor(kind: .picker(config), display: action.value)
+        return ValueDescriptor(
+          kind: .picker(
+            PickerConfig(
+              buttonTitle: "Choose…", chooseDirectories: false,
+              allowedTypes: [.shellScript, .script])), display: action.value)
       case .command:
         return ValueDescriptor(kind: .prompt("Command"), display: action.value)
       case .url:
         return ValueDescriptor(
           kind: .prompt("URL", hint: "Tip: Add Args to use $1, $2... placeholders"),
-          display: action.value
-        )
+          display: action.value)
       default:
         return ValueDescriptor(kind: .prompt("Value"), display: action.value)
       }
@@ -1042,8 +1034,8 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
       panel.canChooseDirectories = chooseDir || allowsAppBundles
       panel.canChooseFiles = !chooseDir || allowsAppBundles
       if let types = allowedTypes { panel.allowedContentTypes = types }
-      // Start in /Applications only when selecting apps, otherwise use home directory
-      panel.directoryURL = allowsAppBundles
+      panel.directoryURL =
+        allowsAppBundles
         ? URL(fileURLWithPath: "/Applications")
         : FileManager.default.homeDirectoryForCurrentUser
       if panel.runModal() == .OK, let url = panel.url { picked(url) }
@@ -1053,9 +1045,7 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
 
   private static func allowsAppBundles(_ types: [UTType]?) -> Bool {
     guard let types else { return false }
-    return types.contains { type in
-      type == .application || type == .applicationBundle
-    }
+    return types.contains { $0 == .application || $0 == .applicationBundle }
   }
 
   private static func index(for type: Type) -> Int {
@@ -1069,17 +1059,20 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
     default: return 0
     }
   }
+
   private static func type(for idx: Int) -> Type {
     [Type.application, .url, .command, .folder, .file, .script][max(0, min(5, idx))]
   }
 
-  private func promptText(title: String, initial: String, hint: String? = nil, onOK: @escaping (String) -> Void) {
+  private func promptText(
+    title: String, initial: String, hint: String? = nil, onOK: @escaping (String) -> Void
+  ) {
     let alert = NSAlert()
     alert.messageText = title
     alert.addButton(withTitle: "OK")
     alert.addButton(withTitle: "Cancel")
     let field = NSTextField(string: initial)
-    
+
     if let hint = hint {
       let container = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 44))
       field.frame = NSRect(x: 0, y: 18, width: 300, height: 22)
@@ -1094,20 +1087,15 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
       field.frame = NSRect(x: 0, y: 0, width: 260, height: 22)
       alert.accessoryView = field
     }
-    
+
     alert.window.initialFirstResponder = field
     field.selectText(nil)
-    let response = alert.runModal()
-    if response == .alertFirstButtonReturn { onOK(field.stringValue) }
+    if alert.runModal() == .alertFirstButtonReturn { onOK(field.stringValue) }
   }
 
-  // MARK: Key capture logic (replicates SwiftUI KeyButton UX)
-  private var keyMonitor: Any?
   private func beginKeyCapture() {
     guard keyMonitor == nil else { return }
     keyButton.title = ""
-
-    // Change button to highlighted blue style
     keyButton.contentTintColor = NSColor.white
     keyButton.bezelColor = NSColor.systemBlue
 
@@ -1129,7 +1117,6 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
       keyMonitor = nil
     }
 
-    // Reset button style
     keyButton.contentTintColor = nil
     keyButton.bezelColor = nil
 
@@ -1141,12 +1128,9 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
     a.key = normalized
     onChange?(.action(a))
     updateButtons(for: a)
-
-    // Restore validation styling if there was an error
     updateValidationStyle(currentValidationError)
   }
 
-  // MARK: Icon helpers (action)
   private func showIconMenu(anchor: NSView?) {
     ConfigEditorUI.presentIconMenu(
       anchor: anchor,
@@ -1175,21 +1159,12 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
 
   @objc private func handlePickSymbol() {
     guard let anchor = iconButton as NSView? else { return }
-    presentSymbolPickerSheet(
-      anchor: anchor,
-      initial: currentAction()?.iconPath,
-      owner: self,
-      getWindow: { self.symbolWindow },
-      setWindow: { self.symbolWindow = $0 },
-      getParent: { self.symbolParent },
-      setParent: { self.symbolParent = $0 },
-      onPicked: { [weak self] picked in
-        guard let self, var a = self.currentAction() else { return }
-        a.iconPath = picked?.isEmpty == true ? nil : picked
-        self.onChange?(.action(a))
-        self.updateIcon(for: a)
-      }
-    )
+    presentSymbolPickerSheet(anchor: anchor, initial: currentAction()?.iconPath, host: self) { [weak self] picked in
+      guard let self, var a = self.currentAction() else { return }
+      a.iconPath = picked?.isEmpty == true ? nil : picked
+      self.onChange?(.action(a))
+      self.updateIcon(for: a)
+    }
   }
 
   @objc private func handleClearIcon() {
@@ -1205,7 +1180,6 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
     iconButton.image = action.resolvedIcon()
   }
 
-  // MARK: Open With helpers
   private func handlePickOpenWithApp() {
     guard var a = currentAction() else { return }
     let panel = NSOpenPanel()
@@ -1233,27 +1207,16 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
     guard let anchor else { return }
     let menu = NSMenu()
     menu.addItem(
-      withTitle: "Change Open With App…",
-      action: #selector(openWithMenuPickApp),
-      keyEquivalent: ""
+      withTitle: "Change Open With App…", action: #selector(openWithMenuPickApp), keyEquivalent: ""
     )
     menu.addItem(
-      withTitle: "Clear Open With",
-      action: #selector(openWithMenuClear),
-      keyEquivalent: ""
-    )
+      withTitle: "Clear Open With", action: #selector(openWithMenuClear), keyEquivalent: "")
     for item in menu.items { item.target = self }
-    let point = NSPoint(x: 0, y: anchor.bounds.height)
-    menu.popUp(positioning: nil, at: point, in: anchor)
+    menu.popUp(positioning: nil, at: NSPoint(x: 0, y: anchor.bounds.height), in: anchor)
   }
 
-  @objc private func openWithMenuPickApp() {
-    handlePickOpenWithApp()
-  }
-
-  @objc private func openWithMenuClear() {
-    handleClearOpenWith()
-  }
+  @objc private func openWithMenuPickApp() { handlePickOpenWithApp() }
+  @objc private func openWithMenuClear() { handleClearOpenWith() }
 
   private func updateOpenWithIcon(for action: Action) {
     if let openWithPath = action.openWith, !openWithPath.isEmpty {
@@ -1267,12 +1230,9 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
     }
   }
 
-  // MARK: Script Arguments
   private func updateArgsButton(for action: Action) {
-    // Show args button for script, command, and url types
     argsBtn.isHidden = action.type != .script && action.type != .command && action.type != .url
-    
-    // Update button title to show argument count
+
     if let args = action.arguments, !args.isEmpty {
       argsBtn.title = "Args (\(args.count))"
     } else {
@@ -1282,29 +1242,26 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
 
   private func showArgumentsEditor() {
     guard var action = currentAction() else { return }
-    
+
     let alert = NSAlert()
     alert.messageText = "Edit Optional Arguments"
     alert.informativeText = "Enter arguments (one per line).\nFormat: name | default value"
     alert.addButton(withTitle: "Save")
     alert.addButton(withTitle: "Cancel")
-    
-    // Create container for text view + hint
+
     let containerHeight: CGFloat = 150
     let container = NSView(frame: NSRect(x: 0, y: 0, width: 350, height: containerHeight))
-    
-    // Create text view for multi-line input
+
     let scrollView = NSScrollView(frame: NSRect(x: 0, y: 26, width: 350, height: 120))
     scrollView.hasVerticalScroller = true
     scrollView.borderType = .bezelBorder
-    
+
     let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 350, height: 120))
     textView.isEditable = true
     textView.isRichText = false
     textView.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
     textView.autoresizingMask = [.width, .height]
-    
-    // Pre-populate with existing arguments
+
     if let args = action.arguments {
       let lines = args.map { arg in
         if let defaultValue = arg.defaultValue, !defaultValue.isEmpty {
@@ -1314,51 +1271,51 @@ private class ActionCellView: NSTableCellView, NSWindowDelegate {
       }
       textView.string = lines.joined(separator: "\n")
     }
-    
+
     scrollView.documentView = textView
     container.addSubview(scrollView)
-    
-    // Add hint text at bottom (smaller, secondary color)
-    let hint = NSTextField(labelWithString: "To use arguments in your command or script, reference $1, $2, $3, etc.")
+
+    let hint = NSTextField(
+      labelWithString: "To use arguments in your command or script, reference $1, $2, $3, etc.")
     hint.font = NSFont.systemFont(ofSize: 11)
     hint.textColor = .secondaryLabelColor
     hint.frame = NSRect(x: 0, y: 4, width: 350, height: 16)
     container.addSubview(hint)
-    
+
     alert.accessoryView = container
     alert.window.initialFirstResponder = textView
-    
-    let response = alert.runModal()
-    if response == .alertFirstButtonReturn {
-      // Parse the text into arguments
+
+    if alert.runModal() == .alertFirstButtonReturn {
       let lines = textView.string.components(separatedBy: "\n")
         .map { $0.trimmingCharacters(in: .whitespaces) }
         .filter { !$0.isEmpty }
-      
+
       var newArgs: [ScriptArgument] = []
       for line in lines {
-        let parts = line.components(separatedBy: "|").map { $0.trimmingCharacters(in: .whitespaces) }
+        let parts = line.components(separatedBy: "|").map { $0.trimmingCharacters(in: .whitespaces)
+        }
         let name = parts[0]
         let defaultValue = parts.count > 1 ? parts[1] : nil
         newArgs.append(ScriptArgument(name: name, defaultValue: defaultValue))
       }
-      
+
       action.arguments = newArgs.isEmpty ? nil : newArgs
       onChange?(.action(action))
       updateArgsButton(for: action)
     }
   }
-
-  // symbol picker presenting delegated to shared helper
 }
 
-private class GroupCellView: NSTableCellView, NSWindowDelegate {
+// MARK: - Group Cell View
+
+class GroupCellView: NSTableCellView, SymbolSheetHost {
   private enum Layout {
     static let keyWidth: CGFloat = 28
     static let labelWidth: CGFloat = 160
     static let iconButtonWidth: CGFloat = 28
     static let globalShortcutWidth: CGFloat = 120
   }
+
   private var keyButton = NSButton()
   private var iconButton = NSButton()
   private var labelButton = NSButton()
@@ -1380,8 +1337,9 @@ private class GroupCellView: NSTableCellView, NSWindowDelegate {
   private var currentValidationError: ValidationErrorType?
   private var onAddAction: (() -> Void)?
   private var onAddGroup: (() -> Void)?
-  private var symbolWindow: NSWindow?
-  private weak var symbolParent: NSWindow?
+  var symbolWindow: NSWindow?
+  weak var symbolParent: NSWindow?
+  private var keyMonitor: Any?
 
   convenience init(identifier: NSUserInterfaceItemIdentifier) {
     self.init(frame: .zero)
@@ -1422,9 +1380,8 @@ private class GroupCellView: NSTableCellView, NSWindowDelegate {
     let spacer2 = NSView()
 
     let globalShortcutContainer = NSView()
-    globalShortcutContainer.widthAnchor.constraint(
-      equalToConstant: Layout.globalShortcutWidth
-    ).isActive = true
+    globalShortcutContainer.widthAnchor.constraint(equalToConstant: Layout.globalShortcutWidth)
+      .isActive = true
     globalShortcutView = globalShortcutContainer
 
     for view in [
@@ -1503,6 +1460,13 @@ private class GroupCellView: NSTableCellView, NSWindowDelegate {
     updateValidationStyle(error)
   }
 
+  func windowShouldClose(_ sender: NSWindow) -> Bool {
+    (sender.sheetParent ?? symbolParent)?.endSheet(sender)
+    symbolWindow = nil
+    symbolParent = nil
+    return true
+  }
+
   private func updateButtons(for group: Group) {
     keyButton.title =
       (group.key?.isEmpty ?? true)
@@ -1517,45 +1481,33 @@ private class GroupCellView: NSTableCellView, NSWindowDelegate {
 
   private func updateValidationStyle(_ error: ValidationErrorType?) {
     updateRowBackground(error)
-
-    // Don't override blue background when listening for keys
     guard keyMonitor == nil else { return }
 
     if error != nil {
-      // Add subtle red border to indicate validation error
       keyButton.layer?.borderColor = NSColor.systemRed.cgColor
       keyButton.layer?.borderWidth = 1.0
       keyButton.layer?.cornerRadius = 4.0
     } else {
-      // Remove validation error styling
       keyButton.layer?.borderColor = NSColor.clear.cgColor
       keyButton.layer?.borderWidth = 0.0
     }
   }
 
   private func updateRowBackground(_ error: ValidationErrorType?) {
-    let color: NSColor?
-    if error != nil {
-      color = NSColor.systemRed.withAlphaComponent(0.08)
-    } else {
-      color = nil
-    }
+    let color: NSColor? = error != nil ? NSColor.systemRed.withAlphaComponent(0.08) : nil
     layer?.backgroundColor = color?.cgColor
   }
 
   private func updateGlobalShortcutView(for group: Group) {
     guard let container = globalShortcutView else { return }
-
-    // Clear existing content
     container.subviews.removeAll()
 
-    let isFirstLevel = node?.parent?.parent == nil  // First level groups are children of root
+    let isFirstLevel = node?.parent?.parent == nil
     let hasValidKey = group.key != nil && !group.key!.isEmpty
 
     if isFirstLevel && hasValidKey, let key = group.key {
       let recorder = KeyboardShortcuts.RecorderCocoa(for: KeyboardShortcuts.Name("group-\(key)")) {
         _ in
-        // Update the groupShortcuts set when shortcut changes
         let shortcutName = KeyboardShortcuts.Name("group-\(key)")
         if KeyboardShortcuts.getShortcut(for: shortcutName) != nil {
           Defaults[.groupShortcuts].insert(key)
@@ -1563,8 +1515,8 @@ private class GroupCellView: NSTableCellView, NSWindowDelegate {
           Defaults[.groupShortcuts].remove(key)
         }
 
-        // Re-register global shortcuts
-        (NSApplication.shared.delegate as! AppDelegate).registerGlobalShortcuts()
+        // Notify that shortcuts changed
+        Events.send(.shortcutsChanged)
       }
       recorder.translatesAutoresizingMaskIntoConstraints = false
       container.addSubview(recorder)
@@ -1589,19 +1541,14 @@ private class GroupCellView: NSTableCellView, NSWindowDelegate {
     let field = NSTextField(string: initial ?? "")
     field.frame = NSRect(x: 0, y: 0, width: 260, height: 22)
     alert.accessoryView = field
-    // Focus and select all when the dialog opens
     alert.window.initialFirstResponder = field
     field.selectText(nil)
     if alert.runModal() == .alertFirstButtonReturn { onOK(field.stringValue) }
   }
 
-  // MARK: Key capture (group)
-  private var keyMonitor: Any?
   private func beginKeyCapture() {
     guard keyMonitor == nil else { return }
     keyButton.title = ""
-
-    // Change button to highlighted blue style
     keyButton.contentTintColor = NSColor.white
     keyButton.bezelColor = NSColor.systemBlue
 
@@ -1623,7 +1570,6 @@ private class GroupCellView: NSTableCellView, NSWindowDelegate {
       keyMonitor = nil
     }
 
-    // Reset button style
     keyButton.contentTintColor = nil
     keyButton.bezelColor = nil
 
@@ -1634,7 +1580,6 @@ private class GroupCellView: NSTableCellView, NSWindowDelegate {
 
     let normalized = char?.isEmpty == true ? nil : char
 
-    // If key changed and there was a global shortcut, remove it
     if let oldKey = g.key, !oldKey.isEmpty, normalized != oldKey {
       var shortcuts = Defaults[.groupShortcuts]
       shortcuts.remove(oldKey)
@@ -1645,16 +1590,11 @@ private class GroupCellView: NSTableCellView, NSWindowDelegate {
     g.key = normalized
     onChange?(.group(g))
     updateButtons(for: g)
-
-    // Restore validation styling if there was an error
     updateValidationStyle(currentValidationError)
 
-    // Re-register global shortcuts after key change
-    let appDelegate = NSApp.delegate as? AppDelegate
-    appDelegate?.registerGlobalShortcuts()
+    Events.send(.shortcutsChanged)
   }
 
-  // MARK: Icon helpers (group)
   private func showIconMenu(anchor: NSView?) {
     ConfigEditorUI.presentIconMenu(
       anchor: anchor,
@@ -1683,21 +1623,12 @@ private class GroupCellView: NSTableCellView, NSWindowDelegate {
 
   @objc private func handlePickSymbol() {
     guard let anchor = iconButton as NSView? else { return }
-    presentSymbolPickerSheet(
-      anchor: anchor,
-      initial: currentGroup()?.iconPath,
-      owner: self,
-      getWindow: { self.symbolWindow },
-      setWindow: { self.symbolWindow = $0 },
-      getParent: { self.symbolParent },
-      setParent: { self.symbolParent = $0 },
-      onPicked: { [weak self] picked in
-        guard let self, var g = self.currentGroup() else { return }
-        g.iconPath = picked?.isEmpty == true ? nil : picked
-        self.onChange?(.group(g))
-        self.updateIcon(for: g)
-      }
-    )
+    presentSymbolPickerSheet(anchor: anchor, initial: currentGroup()?.iconPath, host: self) { [weak self] picked in
+      guard let self, var g = self.currentGroup() else { return }
+      g.iconPath = picked?.isEmpty == true ? nil : picked
+      self.onChange?(.group(g))
+      self.updateIcon(for: g)
+    }
   }
 
   @objc private func handleClearIcon() {
@@ -1720,7 +1651,6 @@ private class GroupCellView: NSTableCellView, NSWindowDelegate {
       return action.type == .folder || action.type == .file || action.type == .url
     }.count
 
-    // Groups don't support openWith for single item
     ConfigEditorUI.presentContextualMenu(
       anchor: anchor,
       selectedCount: selectedNodes.count,
@@ -1737,258 +1667,9 @@ private class GroupCellView: NSTableCellView, NSWindowDelegate {
 
   private func showBulkSymbolPicker() {
     guard let anchor = moreBtn as NSView? else { return }
-    presentSymbolPickerSheet(
-      anchor: anchor,
-      initial: nil,
-      owner: self,
-      getWindow: { self.symbolWindow },
-      setWindow: { self.symbolWindow = $0 },
-      getParent: { self.symbolParent },
-      setParent: { self.symbolParent = $0 },
-      onPicked: { [weak self] picked in
-        guard let self, let symbol = picked, !symbol.isEmpty else { return }
-        self.onBulkSetSymbol?(symbol)
-      }
-    )
-  }
-}
-
-// MARK: - Editor Node
-
-private class EditorNode: NSObject {
-  enum Kind {
-    case action(Action)
-    case group(Group)
-  }
-  var id = UUID()
-  var kind: Kind
-  weak var parent: EditorNode?
-  var children: [EditorNode] = []
-
-  var isGroup: Bool { if case .group = kind { return true } else { return false } }
-
-  init(kind: Kind, parent: EditorNode? = nil) {
-    self.kind = kind
-    self.parent = parent
-    super.init()
-  }
-
-  static func action(_ a: Action, parent: EditorNode?) -> EditorNode {
-    EditorNode(kind: .action(a), parent: parent)
-  }
-  static func group(_ g: Group, parent: EditorNode? = nil) -> EditorNode {
-    EditorNode(kind: .group(g), parent: parent)
-  }
-
-  static func from(group: Group, parent: EditorNode? = nil) -> EditorNode {
-    let node = EditorNode.group(group, parent: parent)
-    node.children = group.actions.map { child in
-      switch child {
-      case .action(let a):
-        return EditorNode.action(a, parent: node)
-      case .group(let g):
-        return from(group: g, parent: node)
-      }
+    presentSymbolPickerSheet(anchor: anchor, initial: nil, host: self) { [weak self] picked in
+      guard let self, let symbol = picked, !symbol.isEmpty else { return }
+      self.onBulkSetSymbol?(symbol)
     }
-    return node
-  }
-
-  func toGroup() -> Group {
-    switch kind {
-    case .group(var g):
-      g.actions = children.map { $0.toActionOrGroup() }
-      return g
-    case .action:
-      // Root always a group
-      return Group(key: nil, actions: children.map { $0.toActionOrGroup() })
-    }
-  }
-
-  func toActionOrGroup() -> ActionOrGroup {
-    switch kind {
-    case .action(let a): return .action(a)
-    case .group(var g):
-      g.actions = children.map { $0.toActionOrGroup() }
-      return .group(g)
-    }
-  }
-
-  func apply(_ payload: EditorPayload) {
-    switch (kind, payload) {
-    case (.action, .action(let a)): kind = .action(a)
-    case (.group, .group(let g)): kind = .group(g)
-    default: break
-    }
-  }
-
-  func deleteFromParent() {
-    guard let p = parent else { return }
-    if let idx = p.children.firstIndex(where: { $0 === self }) { p.children.remove(at: idx) }
-  }
-
-  func duplicateInParent() {
-    guard let p = parent else { return }
-    let copy = deepCopy(newParent: p)
-    if let idx = p.children.firstIndex(where: { $0 === self }) { p.children.insert(copy, at: idx) }
-  }
-
-  private func deepCopy(newParent: EditorNode?) -> EditorNode {
-    let copy = EditorNode(kind: kind, parent: newParent)
-    copy.children = children.map { $0.deepCopy(newParent: copy) }
-    return copy
-  }
-}
-
-// MARK: - Target/Action helpers
-
-private class ClosureTarget: NSObject {
-  let handler: () -> Void
-  init(_ handler: @escaping () -> Void) { self.handler = handler }
-  @objc func go() { handler() }
-}
-
-extension NSControl {
-  fileprivate func targetClosure(_ action: @escaping () -> Void) {
-    let t = ClosureTarget(action)
-    self.target = t
-    self.action = #selector(ClosureTarget.go)
-    objc_setAssociatedObject(
-      self, Unmanaged.passUnretained(self).toOpaque(), t, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
-  }
-}
-
-// MARK: - Symbol Picker
-
-// Small SwiftUI bridge around the package view so we can observe changes
-private struct SymbolPickerBridge: View {
-  @State var symbol: String?
-  var onChange: (String?) -> Void
-  var onClose: () -> Void
-
-  init(initial: String?, onChange: @escaping (String?) -> Void, onClose: @escaping () -> Void) {
-    _symbol = State(initialValue: initial)
-    self.onChange = onChange
-    self.onClose = onClose
-  }
-
-  var body: some View {
-    VStack(spacing: 12) {
-      SymbolPicker(
-        symbol: Binding(
-          get: { symbol },
-          set: { newVal in
-            symbol = newVal
-            onChange(newVal)
-          }
-        ))
-      HStack {
-        Spacer()
-        Button("Close") { onClose() }
-          .keyboardShortcut(.cancelAction)
-      }
-    }
-    .padding()
-  }
-}
-
-// Shared presenter for the symbol picker sheet used by both cell types
-private func presentSymbolPickerSheet(
-  anchor: NSView,
-  initial: String?,
-  owner: NSWindowDelegate,
-  getWindow: @escaping () -> NSWindow?,
-  setWindow: @escaping (NSWindow?) -> Void,
-  getParent: @escaping () -> NSWindow?,
-  setParent: @escaping (NSWindow?) -> Void,
-  onPicked: @escaping (String?) -> Void
-) {
-  if let parent = getParent(), let win = getWindow() { parent.endSheet(win) }
-  setWindow(nil)
-  setParent(nil)
-
-  let host = NSHostingController(
-    rootView: SymbolPickerBridge(
-      initial: initial,
-      onChange: { value in
-        onPicked(value)
-        if let win = getWindow() {
-          if let parent = getParent() ?? anchor.window ?? NSApp.keyWindow {
-            parent.endSheet(win, returnCode: .OK)
-          } else {
-            win.close()
-          }
-          setWindow(nil)
-          setParent(nil)
-        }
-      },
-      onClose: {
-        guard let win = getWindow() else { return }
-        if let parent = getParent() ?? anchor.window ?? NSApp.keyWindow {
-          parent.endSheet(win, returnCode: .cancel)
-        } else {
-          win.close()
-        }
-        setWindow(nil)
-        setParent(nil)
-      }
-    ))
-  let win = NSWindow(contentViewController: host)
-  win.title = "Choose Symbol"
-  win.styleMask.insert(.titled)
-  win.styleMask.insert(.closable)
-  win.setContentSize(NSSize(width: 560, height: 640))
-  win.delegate = owner
-  setWindow(win)
-  let parent = anchor.window ?? NSApp.keyWindow
-  setParent(parent)
-  if let parent {
-    parent.beginSheet(win) { _ in
-      setWindow(nil)
-      setParent(nil)
-    }
-  } else {
-    win.center()
-    win.makeKeyAndOrderFront(nil)
-  }
-}
-
-extension Notification.Name {
-  static let lkExpandAll = Notification.Name("LKExpandAll")
-  static let lkCollapseAll = Notification.Name("LKCollapseAll")
-  static let lkSortAZ = Notification.Name("LKSortAZ")
-}
-
-// MARK: - NSWindowDelegate for symbol sheets
-extension ActionCellView {
-  func windowShouldClose(_ sender: NSWindow) -> Bool {
-    (sender.sheetParent ?? symbolParent)?.endSheet(sender)
-    symbolWindow = nil
-    symbolParent = nil
-    return true
-  }
-}
-extension GroupCellView {
-  func windowShouldClose(_ sender: NSWindow) -> Bool {
-    (sender.sheetParent ?? symbolParent)?.endSheet(sender)
-    symbolWindow = nil
-    symbolParent = nil
-    return true
-  }
-}
-
-extension NSView {
-  fileprivate func makeFlex() {
-    setContentHuggingPriority(.init(10), for: .horizontal)
-    setContentCompressionResistancePriority(.init(10), for: .horizontal)
-  }
-
-  fileprivate func makeSoft() {
-    setContentHuggingPriority(.defaultLow, for: .horizontal)  // 250
-    setContentCompressionResistancePriority(.defaultLow, for: .horizontal)  // 250
-  }
-
-  fileprivate func makeRigid() {
-    setContentHuggingPriority(.defaultHigh, for: .horizontal)  // 750
-    setContentCompressionResistancePriority(.init(999), for: .horizontal)
   }
 }

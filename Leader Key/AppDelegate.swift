@@ -1,4 +1,5 @@
 import Cocoa
+import Combine
 import Defaults
 import KeyboardShortcuts
 import Settings
@@ -21,6 +22,7 @@ class AppDelegate: NSObject, NSApplicationDelegate,
 
   var state: UserState!
   @IBOutlet var updaterController: SPUStandardUpdaterController!
+  private var eventsCancellable: AnyCancellable?
 
   lazy var settingsWindowController: SettingsWindowController = {
     let controller = SettingsWindowController(
@@ -97,6 +99,13 @@ class AppDelegate: NSObject, NSApplicationDelegate,
     // Activation policy is managed solely by the Settings window
 
     registerGlobalShortcuts()
+
+    // Listen for shortcut changes from the editor
+    eventsCancellable = Events.sink { [weak self] event in
+      if event == .shortcutsChanged {
+        self?.registerGlobalShortcuts()
+      }
+    }
   }
 
   func activate() {
