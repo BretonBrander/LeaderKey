@@ -7,6 +7,19 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+
+		F252B9A02A384554B3F774DA /* Animations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 652F8E9F04444CA0A5205746 /* Animations.swift */; };
+
+		0ED3DB6F962141F4B67032C1 /* Action+Additions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F432AD3BB944972BD8C4265 /* Action+Additions.swift */; };
+		33C6378126B6416EB25EB981 /* ConfigModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09766673924E4E28A3140497 /* ConfigModels.swift */; };
+		4E53CF322EAD42D7AB86214D /* DropEnabledHostingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A73305586FCE42779CCF9A0B /* DropEnabledHostingView.swift */; };
+		0989CD19AE0E4D66ABC5CB23 /* ScriptArgumentDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A434324F4894DEF98EF6FED /* ScriptArgumentDialog.swift */; };
+		0A5BE866811B453193C0353E /* LiquidGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 432A6AE837E146D7AB69C1C0 /* LiquidGlass.swift */; };
+		DB4475D2969F41A79B549148 /* AnimationGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E990DE71DB394A51B061E9E7 /* AnimationGate.swift */; };
+		110D754E696B478CB93663DB /* EditorHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74259A5C240D486BBBC8A82D /* EditorHelpers.swift */; };
+		77CD8E3D1EE0414F8354730F /* EditorNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA484FFFAEB846DBB6729858 /* EditorNode.swift */; };
+		A9796E4D0FE642F9AB753466 /* GlassEffects.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C9C348A13AB4EE0B491E4AF /* GlassEffects.swift */; };
+		A3883E2DDBB14F1EA210674E /* HotkeyCaptureDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DD0E727B6494668954D0CBA /* HotkeyCaptureDialog.swift */; };
 		115AA5BF2DA521C600C17E18 /* ActionIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 115AA5BE2DA521C200C17E18 /* ActionIcon.swift */; };
 		115AA5C22DA546D500C17E18 /* SymbolPicker in Frameworks */ = {isa = PBXBuildFile; productRef = 115AA5C12DA546D500C17E18 /* SymbolPicker */; };
 		130196C62D73B3DE0093148B /* Breadcrumbs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 130196C52D73B3DC0093148B /* Breadcrumbs.swift */; };
@@ -68,6 +81,19 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+
+		652F8E9F04444CA0A5205746 /* Animations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Animations.swift; sourceTree = "<group>"; };
+
+		8F432AD3BB944972BD8C4265 /* Action+Additions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Action+Additions.swift; sourceTree = "<group>"; };
+		09766673924E4E28A3140497 /* ConfigModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigModels.swift; sourceTree = "<group>"; };
+		A73305586FCE42779CCF9A0B /* DropEnabledHostingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropEnabledHostingView.swift; sourceTree = "<group>"; };
+		9A434324F4894DEF98EF6FED /* ScriptArgumentDialog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptArgumentDialog.swift; sourceTree = "<group>"; };
+		432A6AE837E146D7AB69C1C0 /* LiquidGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlass.swift; sourceTree = "<group>"; };
+		E990DE71DB394A51B061E9E7 /* AnimationGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimationGate.swift; sourceTree = "<group>"; };
+		74259A5C240D486BBBC8A82D /* EditorHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorHelpers.swift; sourceTree = "<group>"; };
+		AA484FFFAEB846DBB6729858 /* EditorNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorNode.swift; sourceTree = "<group>"; };
+		6C9C348A13AB4EE0B491E4AF /* GlassEffects.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassEffects.swift; sourceTree = "<group>"; };
+		6DD0E727B6494668954D0CBA /* HotkeyCaptureDialog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyCaptureDialog.swift; sourceTree = "<group>"; };
 		115AA5BE2DA521C200C17E18 /* ActionIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionIcon.swift; sourceTree = "<group>"; };
 		130196C52D73B3DC0093148B /* Breadcrumbs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Breadcrumbs.swift; sourceTree = "<group>"; };
 		423632142D678F4400878D92 /* TestPlan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestPlan.xctestplan; sourceTree = "<group>"; };
@@ -149,6 +175,7 @@
 				4254953F2D75EFAD0020300E /* ForTheHorde.swift */,
 				423632252D68CDBB00878D92 /* Mini.swift */,
 				606C56EE2DAB875A00198B9F /* Cheater.swift */,
+				432A6AE837E146D7AB69C1C0 /* LiquidGlass.swift */,
 			);
 			path = Themes;
 			sourceTree = "<group>";
@@ -209,6 +236,10 @@
 				427C18362BD3243C00955B98 /* Support */,
 				423632232D68CB0F00878D92 /* Themes */,
 				427C18392BD3268000955B98 /* Views */,
+				8F432AD3BB944972BD8C4265 /* Action+Additions.swift */,
+				09766673924E4E28A3140497 /* ConfigModels.swift */,
+				A73305586FCE42779CCF9A0B /* DropEnabledHostingView.swift */,
+				9A434324F4894DEF98EF6FED /* ScriptArgumentDialog.swift */,
 			);
 			path = "Leader Key";
 			sourceTree = "<group>";
@@ -254,6 +285,12 @@
 				6D9B9C032DBA000000000002 /* KeyCapture.swift */,
 				6D9B9C052DBA000000000003 /* ConfigEditorShared.swift */,
 				115AA5BE2DA521C200C17E18 /* ActionIcon.swift */,
+				E990DE71DB394A51B061E9E7 /* AnimationGate.swift */,
+				74259A5C240D486BBBC8A82D /* EditorHelpers.swift */,
+				AA484FFFAEB846DBB6729858 /* EditorNode.swift */,
+				6C9C348A13AB4EE0B491E4AF /* GlassEffects.swift */,
+				6DD0E727B6494668954D0CBA /* HotkeyCaptureDialog.swift */,
+				652F8E9F04444CA0A5205746 /* Animations.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -443,6 +480,17 @@
 				42F4CDCD2D45B13600D0DD76 /* KeyButton.swift in Sources */,
 				606C56EF2DAB875A00198B9F /* Cheater.swift in Sources */,
 				427C181C2BD314B500955B98 /* Constants.swift in Sources */,
+				0ED3DB6F962141F4B67032C1 /* Action+Additions.swift in Sources */,
+				33C6378126B6416EB25EB981 /* ConfigModels.swift in Sources */,
+				4E53CF322EAD42D7AB86214D /* DropEnabledHostingView.swift in Sources */,
+				0989CD19AE0E4D66ABC5CB23 /* ScriptArgumentDialog.swift in Sources */,
+				0A5BE866811B453193C0353E /* LiquidGlass.swift in Sources */,
+				DB4475D2969F41A79B549148 /* AnimationGate.swift in Sources */,
+				110D754E696B478CB93663DB /* EditorHelpers.swift in Sources */,
+				77CD8E3D1EE0414F8354730F /* EditorNode.swift in Sources */,
+				A9796E4D0FE642F9AB753466 /* GlassEffects.swift in Sources */,
+				A3883E2DDBB14F1EA210674E /* HotkeyCaptureDialog.swift in Sources */,
+				F252B9A02A384554B3F774DA /* Animations.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
