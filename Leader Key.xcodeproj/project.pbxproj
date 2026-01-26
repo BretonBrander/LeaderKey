@@ -84,7 +84,7 @@
 
 		652F8E9F04444CA0A5205746 /* Animations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Animations.swift; sourceTree = "<group>"; };
 
-		8F432AD3BB944972BD8C4265 /* Action+Additions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Action+Additions.swift; sourceTree = "<group>"; };
+		8F432AD3BB944972BD8C4265 /* Action+Additions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Action+Additions.swift"; sourceTree = "<group>"; };
 		09766673924E4E28A3140497 /* ConfigModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigModels.swift; sourceTree = "<group>"; };
 		A73305586FCE42779CCF9A0B /* DropEnabledHostingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropEnabledHostingView.swift; sourceTree = "<group>"; };
 		9A434324F4894DEF98EF6FED /* ScriptArgumentDialog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptArgumentDialog.swift; sourceTree = "<group>"; };
