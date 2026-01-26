@@ -16,9 +16,7 @@ struct WindowAppearanceReader: NSViewRepresentable {
     return view
   }
   
-  func updateNSView(_ nsView: NSView, context: Context) {
-    guard let view = nsView as? AppearanceReaderView else { return }
-    
+  func updateNSView(_ nsView: AppearanceReaderView, context: Context) {
     // Always use NSApp.effectiveAppearance as the source of truth
     // Window appearance can be unreliable for programmatically created panels
     let effectiveAppearance = NSApp.effectiveAppearance
@@ -58,6 +56,7 @@ struct HotkeyCaptureDialog: View {
   let fileName: String
   @Binding var isPresented: Bool
   @Binding var capturedKey: String?
+  let onCancel: (() -> Void)?
   @State private var isListening = false
   @State private var currentKey: String = ""
   @State private var isDarkMode: Bool = false  // Default to light mode, reader will update
@@ -172,6 +171,9 @@ struct HotkeyCaptureDialog: View {
                 if !currentKey.isEmpty {
                   confirm()
                 }
+              },
+              onEscapePressed: {
+                cancel()
               }
             )
           )
@@ -231,6 +233,7 @@ struct HotkeyCaptureDialog: View {
     isListening = false
     capturedKey = nil
     isPresented = false
+    onCancel?()
   }
   
   private func confirm() {
@@ -247,6 +250,7 @@ struct DialogKeyListenerView: NSViewRepresentable {
   @Binding var oldValue: String
   var onKeyChanged: KeyChangedFn?
   let onEnterPressed: () -> Void
+  let onEscapePressed: () -> Void
   
   func makeNSView(context: Context) -> NSView {
     let view = DialogKeyListenerNSView()
@@ -255,6 +259,7 @@ struct DialogKeyListenerView: NSViewRepresentable {
     view.oldValue = $oldValue
     view.onKeyChanged = onKeyChanged
     view.onEnterPressed = onEnterPressed
+    view.onEscapePressed = onEscapePressed
     return view
   }
   
@@ -265,6 +270,7 @@ struct DialogKeyListenerView: NSViewRepresentable {
       view.oldValue = $oldValue
       view.onKeyChanged = onKeyChanged
       view.onEnterPressed = onEnterPressed
+      view.onEscapePressed = onEscapePressed
       
       if isListening {
         DispatchQueue.main.async {
@@ -280,10 +286,16 @@ struct DialogKeyListenerView: NSViewRepresentable {
     var oldValue: Binding<String>?
     var onKeyChanged: KeyChangedFn?
     var onEnterPressed: (() -> Void)?
+    var onEscapePressed: (() -> Void)?
     
     override var acceptsFirstResponder: Bool { true }
     
     override func keyDown(with event: NSEvent) {
+      if event.keyCode == KeyHelpers.escape.rawValue {
+        onEscapePressed?()
+        return
+      }
+
       // Handle Enter key separately
       if event.keyCode == KeyHelpers.enter.rawValue {
         // Trigger if we have a captured key (regardless of listening state)
@@ -331,4 +343,3 @@ struct DialogKeyListenerView: NSViewRepresentable {
     }
   }
 }
-
