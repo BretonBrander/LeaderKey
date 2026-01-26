@@ -18,7 +18,7 @@ enum ForTheHorde {
       isOpaque = false
       hasShadow = false
 
-      let view = MainView()
+      let view = AnimationEnabledProvider(content: MainView())
         .environmentObject(self.controller.userState)
         .environmentObject(self.controller.userConfig)
         .environmentObject(animationState)

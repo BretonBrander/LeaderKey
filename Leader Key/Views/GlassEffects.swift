@@ -41,6 +41,11 @@ struct GlossyGlassBackground: View {
   }
 
   var body: some View {
+    let shimmerStart = max(0, min(1, shimmerOffset))
+    let shimmerMid1 = max(shimmerStart, min(1, shimmerOffset + 0.03))
+    let shimmerMid2 = max(shimmerMid1, min(1, shimmerOffset + 0.08))
+    let shimmerEnd = max(shimmerMid2, min(1, shimmerOffset + 0.12))
+
     ZStack {
       // Base layer - AppKit blur (independent from tint)
       VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
@@ -111,10 +116,10 @@ struct GlossyGlassBackground: View {
         .fill(
           LinearGradient(
             stops: [
-              .init(color: .clear, location: max(0, shimmerOffset)),
-              .init(color: .white.opacity(0.2), location: min(1, max(0, shimmerOffset + 0.03))),
-              .init(color: .white.opacity(0.12), location: min(1, max(0, shimmerOffset + 0.08))),
-              .init(color: .clear, location: min(1, shimmerOffset + 0.12))
+              .init(color: .clear, location: shimmerStart),
+              .init(color: .white.opacity(0.2), location: shimmerMid1),
+              .init(color: .white.opacity(0.12), location: shimmerMid2),
+              .init(color: .clear, location: shimmerEnd)
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing

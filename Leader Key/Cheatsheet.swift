@@ -254,7 +254,8 @@ enum Cheatsheet {
 
 
   static func createWindow(for userState: UserState) -> NSWindow {
-    let view = CheatsheetView().environmentObject(userState)
+    let view = AnimationEnabledProvider(content: CheatsheetView())
+      .environmentObject(userState)
     let controller = NSHostingController(rootView: view)
     let cheatsheet = PanelWindow(
       contentRect: NSRect(x: 0, y: 0, width: 580, height: 640)

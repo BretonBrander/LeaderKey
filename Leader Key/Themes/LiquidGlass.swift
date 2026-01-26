@@ -24,7 +24,7 @@ enum LiquidGlass {
       isOpaque = false
       hasShadow = false
 
-      let view = CheatsheetView()
+      let view = AnimationEnabledProvider(content: CheatsheetView())
         .environmentObject(self.controller.userState)
         .environmentObject(self.controller.userConfig)
       

@@ -63,6 +63,7 @@ class Controller {
 
   func show() {
     Events.send(.willActivate)
+    userState.isWindowVisible = true
 
     let screen = Defaults[.screen].getNSScreen() ?? NSScreen()
     window.show(on: screen) {
@@ -84,6 +85,7 @@ class Controller {
 
   func hide(afterClose: (() -> Void)? = nil) {
     Events.send(.willDeactivate)
+    userState.isWindowVisible = false
 
     window.hide {
       self.clear()

@@ -11,7 +11,8 @@ enum Breadcrumbs {
         controller: controller,
         contentRect: NSRect(x: 0, y: 0, width: 0, height: 0))
 
-      let view = MainView().environmentObject(self.controller.userState)
+      let view = AnimationEnabledProvider(content: MainView())
+        .environmentObject(self.controller.userState)
       let hostingView = DropEnabledHostingView(rootView: view)
       
       // Set up drag state callback
