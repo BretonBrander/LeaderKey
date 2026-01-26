@@ -17,6 +17,7 @@ enum GlassEffects {
 
 struct GlossyGlassBackground: View {
   let cornerRadius: CGFloat
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @State private var shimmerOffset: CGFloat = -0.3
   @State private var breatheScale: CGFloat = 1.0
   @State private var breatheOpacity: Double = 0.7
@@ -120,19 +121,25 @@ struct GlossyGlassBackground: View {
           )
         )
     }
-    .onAppear {
-      // Quick initial shimmer
-      withAnimation(.easeOut(duration: 0.6)) {
-        shimmerOffset = 1.2
-      }
-
-      // Subtle breathing animation for border
-      withAnimation(
-        .easeInOut(duration: 2.5)
-        .repeatForever(autoreverses: true)
-      ) {
+    .leaderKeyRepeatForever(
+      Animation.easeInOut(duration: 2.5).repeatForever(autoreverses: true),
+      onStart: {
+        breatheOpacity = 0.7
+        breatheScale = 1.0
+      },
+      onAnimate: {
         breatheOpacity = 0.5
         breatheScale = 1.002
+      },
+      onStop: {
+        breatheOpacity = 0.7
+        breatheScale = 1.0
+      }
+    )
+    .onAppear {
+      // Quick initial shimmer
+      AnimationGate.perform(.easeOut(duration: 0.6), reduceMotion: reduceMotion) {
+        shimmerOffset = 1.2
       }
     }
   }
@@ -167,4 +174,3 @@ struct HeightPreferenceKey: PreferenceKey {
     value = nextValue()
   }
 }
-

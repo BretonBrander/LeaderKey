@@ -152,6 +152,7 @@ enum Cheatsheet {
 
   struct CheatsheetView: SwiftUI.View {
     @EnvironmentObject var userState: UserState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var contentHeight: CGFloat = 0
 
     var maxHeight: CGFloat {
@@ -234,7 +235,7 @@ enum Cheatsheet {
         }
         .onChange(of: userState.selectedIndex) { newIndex in
           if let index = newIndex {
-            withAnimation(.easeInOut(duration: 0.15)) {
+            AnimationGate.perform(.easeInOut(duration: 0.15), reduceMotion: reduceMotion) {
               proxy.scrollTo(index, anchor: .center)
             }
           }

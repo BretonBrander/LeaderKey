@@ -9,7 +9,7 @@ import Foundation
 import SwiftUI
 
 public struct Pulsate: ViewModifier {
-  @State var scale: Bool = true
+  @State private var scale: Bool = true
 
   static let singleDurationS = 0.15
 
@@ -22,12 +22,14 @@ public struct Pulsate: ViewModifier {
   }
 
   public func body(content: Content) -> some View {
-    content.onAppear {
-      withAnimation(Animation.easeInOut(duration: duration).repeatForever(autoreverses: true)) {
-        scale.toggle()
-      }
-    }
-    .scaleEffect(scale ? 1 : targetScale)
+    content
+      .leaderKeyRepeatForever(
+        Animation.easeInOut(duration: duration).repeatForever(autoreverses: true),
+        onStart: { scale = true },
+        onAnimate: { scale.toggle() },
+        onStop: { scale = true }
+      )
+      .scaleEffect(scale ? 1 : targetScale)
   }
 }
 

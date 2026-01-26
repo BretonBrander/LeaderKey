@@ -91,6 +91,7 @@ enum LiquidGlass {
   struct KeyBadge: View {
     let key: String
     var isHighlighted: Bool = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hasAppeared = false
 
     private var glowOpacity: Double {
@@ -137,9 +138,9 @@ enum LiquidGlass {
         )
         .scaleEffect(hasAppeared ? (isHighlighted ? 1.08 : 1.0) : 0.8)
         .opacity(hasAppeared ? 1 : 0)
-        .animation(AnimationPresets.selection, value: isHighlighted)
+        .leaderKeyAnimation(AnimationPresets.selection, value: isHighlighted)
         .onAppear {
-          withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+          AnimationGate.perform(.spring(response: 0.4, dampingFraction: 0.6), reduceMotion: reduceMotion) {
             hasAppeared = true
           }
         }
@@ -159,19 +160,22 @@ enum LiquidGlass {
         .blur(radius: 10)
         .scaleEffect(pulseScale)
         .opacity(isActive ? 1 : 0)
-        .onChange(of: isActive) { active in
-          if active { startPulse() }
-        }
-        .onAppear { if isActive { startPulse() } }
-    }
-
-    private func startPulse() {
-      pulseOpacity = 0.06
-      pulseScale = 1.0
-      withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
-        pulseOpacity = 0.15
-        pulseScale = 1.08
-      }
+        .leaderKeyRepeatForever(
+          Animation.easeInOut(duration: 2.0).repeatForever(autoreverses: true),
+          isEnabled: isActive,
+          onStart: {
+            pulseOpacity = 0.06
+            pulseScale = 1.0
+          },
+          onAnimate: {
+            pulseOpacity = 0.15
+            pulseScale = 1.08
+          },
+          onStop: {
+            pulseOpacity = 0.06
+            pulseScale = 1.0
+          }
+        )
     }
   }
 
@@ -234,8 +238,8 @@ enum LiquidGlass {
           }
         )
         .scaleEffect(scale)
-        .animation(AnimationPresets.selection, value: isSelected)
-        .animation(AnimationPresets.hover, value: isHovered)
+        .leaderKeyAnimation(AnimationPresets.selection, value: isSelected)
+        .leaderKeyAnimation(AnimationPresets.hover, value: isHovered)
         .padding(.horizontal, -8)
         .padding(.vertical, -4)
     }
@@ -284,7 +288,7 @@ enum LiquidGlass {
             if showIcons {
               actionIcon(item: .action(action), iconSize: LiquidGlass.iconSize)
                 .opacity(isSelected ? 1 : 0.85)
-                .animation(AnimationPresets.selection, value: isSelected)
+                .leaderKeyAnimation(AnimationPresets.selection, value: isSelected)
             }
 
             Text(action.displayName)
@@ -293,17 +297,17 @@ enum LiquidGlass {
           }
           Spacer()
           if showDetails {
-            Text(action.value)
-              .foregroundStyle(.secondary)
-              .lineLimit(1)
-              .truncationMode(.middle)
-              .opacity(isHovered || isSelected ? 0.9 : 0.6)
-              .animation(AnimationPresets.hover, value: isHovered)
+              Text(action.value)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .opacity(isHovered || isSelected ? 0.9 : 0.6)
+                .leaderKeyAnimation(AnimationPresets.hover, value: isHovered)
+            }
           }
         }
       }
     }
-  }
 
   // MARK: - Group Row
 
@@ -328,14 +332,14 @@ enum LiquidGlass {
             if showIcons {
               actionIcon(item: .group(group), iconSize: LiquidGlass.iconSize)
                 .opacity(isSelected ? 1 : 0.85)
-                .animation(AnimationPresets.selection, value: isSelected)
+                .leaderKeyAnimation(AnimationPresets.selection, value: isSelected)
             }
 
             Image(systemName: "chevron.right")
               .foregroundStyle(.secondary)
               .scaleEffect(isSelected ? 1.15 : 1.0)
               .offset(x: isSelected ? 2 : 0)
-              .animation(AnimationPresets.selection, value: isSelected)
+              .leaderKeyAnimation(AnimationPresets.selection, value: isSelected)
 
             Text(group.displayName)
 
@@ -346,7 +350,7 @@ enum LiquidGlass {
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .opacity(isHovered || isSelected ? 0.9 : 0.6)
-                .animation(AnimationPresets.hover, value: isHovered)
+                .leaderKeyAnimation(AnimationPresets.hover, value: isHovered)
             }
           }
         }
@@ -427,6 +431,7 @@ enum LiquidGlass {
 
   struct CheatsheetView: View {
     @EnvironmentObject var userState: UserState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var contentHeight: CGFloat = 0
     @State private var headerVisible = false
     @State private var animationTrigger = UUID()
@@ -480,7 +485,7 @@ enum LiquidGlass {
         }
         .onChange(of: userState.selectedIndex) { newIndex in
           if let index = newIndex {
-            withAnimation(AnimationPresets.selection) {
+            AnimationGate.perform(AnimationPresets.selection, reduceMotion: reduceMotion) {
               proxy.scrollTo(index, anchor: .center)
             }
           }
@@ -523,7 +528,7 @@ enum LiquidGlass {
       // Generate new trigger to animate rows
       animationTrigger = UUID()
       // Animate header in immediately with spring animation
-      withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+      AnimationGate.perform(.spring(response: 0.3, dampingFraction: 0.75), reduceMotion: reduceMotion) {
         headerVisible = true
       }
     }

@@ -99,6 +99,7 @@ enum ForTheHorde {
   struct MainView: View {
     @EnvironmentObject var userState: UserState
     @EnvironmentObject var animationState: AnimationState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var bgRotation: Double = -15
     @State private var fgRotation: Double = 15
     @State private var scale: CGFloat = 0.95
@@ -135,14 +136,14 @@ enum ForTheHorde {
       .onChange(of: animationState.isShowing) { newValue in
         if newValue {
           // Animate rotations and scale to 100% when showing
-          withAnimation(.easeOut(duration: ForTheHorde.rotationDuration)) {
+          AnimationGate.perform(.easeOut(duration: ForTheHorde.rotationDuration), reduceMotion: reduceMotion) {
             bgRotation = 0
             fgRotation = 0
             scale = 1.0
           }
         } else {
           // Animate rotations the other way and scale down when hiding
-          withAnimation(.easeIn(duration: ForTheHorde.rotationDuration)) {
+          AnimationGate.perform(.easeIn(duration: ForTheHorde.rotationDuration), reduceMotion: reduceMotion) {
             bgRotation = 15
             fgRotation = -15
             scale = 0.95
