@@ -67,9 +67,11 @@ private struct RepeatForeverModifier: ViewModifier {
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Environment(\.leaderKeyAnimationsEnabled) private var animationsEnabled
   @State private var isRunning = false
+  @State private var resetToken = UUID()
 
   func body(content: Content) -> some View {
     content
+      .id(resetToken)
       .onAppear {
         updateRunningState(isEnabled && animationsEnabled)
       }
@@ -119,6 +121,7 @@ private struct RepeatForeverModifier: ViewModifier {
     AnimationGate.perform(nil, reduceMotion: reduceMotion) {
       onStop()
     }
+    resetToken = UUID()
   }
 }
 

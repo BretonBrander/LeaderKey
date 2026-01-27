@@ -75,10 +75,10 @@ class MainWindow: PanelWindow, NSWindowDelegate {
   }
 
   func windowDidResignKey(_ notification: Notification) {
+    controller.userState.isWindowVisible = false
     // Don't hide if a modal dialog is active (like deletion confirmation)
     // Modal dialogs cause the window to resign key, but we shouldn't hide during them
     if NSApp.modalWindow != nil {
-      controller.userState.isWindowVisible = false
       return
     }
     
