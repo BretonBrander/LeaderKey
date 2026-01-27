@@ -70,10 +70,15 @@ class MainWindow: PanelWindow, NSWindowDelegate {
     delegate = self
   }
 
+  func windowDidBecomeKey(_ notification: Notification) {
+    controller.userState.isWindowVisible = true
+  }
+
   func windowDidResignKey(_ notification: Notification) {
     // Don't hide if a modal dialog is active (like deletion confirmation)
     // Modal dialogs cause the window to resign key, but we shouldn't hide during them
     if NSApp.modalWindow != nil {
+      controller.userState.isWindowVisible = false
       return
     }
     
@@ -91,6 +96,10 @@ class MainWindow: PanelWindow, NSWindowDelegate {
     
     // Simple hide - let controller decide
     controller.hide()
+  }
+
+  func windowWillClose(_ notification: Notification) {
+    controller.userState.isWindowVisible = false
   }
 
   override func performKeyEquivalent(with event: NSEvent) -> Bool {
