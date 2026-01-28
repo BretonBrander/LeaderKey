@@ -415,11 +415,15 @@ enum LiquidGlass {
 
   struct CheatsheetView: View {
     @EnvironmentObject var userState: UserState
+    @EnvironmentObject var userConfig: UserConfig
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Default(.showFavoritesInCheatsheet) private var showFavoritesInCheatsheet
     @State private var contentHeight: CGFloat = 0
     @State private var animationTrigger = UUID()
     @State private var navigationDirection: NavigationDirection = .neutral
     @State private var previousPathCount: Int = 0
+    @State private var hoveredFavoriteIndex: Int? = nil
+    @StateObject private var favoritesProvider = FavoritesProvider()
 
     private var maxHeight: CGFloat {
       NSScreen.main?.visibleFrame.height.advanced(by: -40) ?? 640
@@ -448,6 +452,7 @@ enum LiquidGlass {
           VStack(alignment: .leading, spacing: 4) {
             header
             actionRows
+            favoritesSection
             
             // Show drop zone when dragging
             if userState.isDraggingFile {
@@ -507,6 +512,19 @@ enum LiquidGlass {
         previousPathCount = newPathCount
         triggerEntryAnimation(direction: direction)
       }
+      .onAppear {
+        refreshFavorites()
+      }
+      .onChange(of: userConfig.root) { _ in
+        refreshFavorites()
+      }
+      .onChange(of: showFavoritesInCheatsheet) { isEnabled in
+        if isEnabled {
+          refreshFavorites()
+        } else {
+          favoritesProvider.clear()
+        }
+      }
     }
 
     private func triggerEntryAnimation(direction: NavigationDirection) {
@@ -564,6 +582,38 @@ enum LiquidGlass {
         .id("\(navigationKey)-\(index)")
       )
     }
+
+    @ViewBuilder
+    private var favoritesSection: some View {
+      guard showFavoritesInCheatsheet, !favoritesProvider.favorites.isEmpty else { return }
+
+      GlassDivider()
+        .padding(.top, 8)
+
+      Text("Favorites")
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .padding(.bottom, 4)
+
+      ForEach(favoritesProvider.favorites.indices, id: \.self) { index in
+        let action = favoritesProvider.favorites[index]
+        ActionRow(
+          action: action,
+          indent: 0,
+          isSelected: hoveredFavoriteIndex == index,
+          onTap: { userState.onItemTapped?(.action(action)) },
+          onHover: { hovering in
+            hoveredFavoriteIndex = hovering ? index : nil
+          }
+        )
+      }
+    }
+
+    private func refreshFavorites() {
+      guard showFavoritesInCheatsheet else { return }
+      let existingValues = userConfig.actionValues(for: [.application, .folder, .file])
+      favoritesProvider.refresh(excluding: existingValues)
+    }
   }
 }
 
@@ -571,5 +621,6 @@ struct LiquidGlass_Previews: PreviewProvider {
   static var previews: some View {
     LiquidGlass.CheatsheetView()
       .environmentObject(UserState(userConfig: UserConfig()))
+      .environmentObject(UserConfig())
   }
 }

@@ -114,6 +114,8 @@ struct AdvancedPane: View {
         ).padding(.leading, 20).disabled(!showAppIconsInCheatsheet)
         Defaults.Toggle(
           "Show item details in cheatsheet", key: .showDetailsInCheatsheet)
+        Defaults.Toggle(
+          "Show favorites section", key: .showFavoritesInCheatsheet)
 
       }
 
