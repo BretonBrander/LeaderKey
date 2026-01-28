@@ -56,6 +56,7 @@ class MainWindow: PanelWindow, NSWindowDelegate {
   var hasCheatsheet: Bool { return true }
   var controller: Controller
   var shouldHideImmediately = false  // Flag for immediate hide (e.g., Escape key)
+  private var isHotkeyDialogActive = false  // Flag to track hotkey dialog state
 
   required init(controller: Controller) {
     // Here to provide general interface
@@ -75,10 +76,15 @@ class MainWindow: PanelWindow, NSWindowDelegate {
   }
 
   func windowDidResignKey(_ notification: Notification) {
-    controller.userState.isWindowVisible = false
     // Don't hide if a modal dialog is active (like deletion confirmation)
     // Modal dialogs cause the window to resign key, but we shouldn't hide during them
     if NSApp.modalWindow != nil {
+      return
+    }
+    
+    // Don't hide if hotkey dialog is active (like during drag-drop file additions)
+    // This prevents animation lifecycle issues where repeating animations continue after window closes
+    if isHotkeyDialogActive {
       return
     }
     
@@ -86,6 +92,10 @@ class MainWindow: PanelWindow, NSWindowDelegate {
     if controller.isPerformingDeletion {
       return
     }
+    
+    // Only set isWindowVisible = false when we're actually going to hide
+    // Setting it earlier can disrupt SwiftUI view state during dialog interactions
+    controller.userState.isWindowVisible = false
     
     // Check if we need to hide immediately (e.g., Escape key pressed)
     if shouldHideImmediately {
@@ -175,6 +185,9 @@ class MainWindow: PanelWindow, NSWindowDelegate {
   }
   
   private func showHotkeyDialog(fileName: String, completion: @escaping (String?) -> Void, onCancel: @escaping () -> Void) {
+    // Set flag to prevent window hide while dialog is active
+    isHotkeyDialogActive = true
+    
     let dialogSize = NSSize(width: 400, height: 350)
     let dialogWindow = DialogWindow(contentRect: NSRect(origin: .zero, size: dialogSize))
     
@@ -186,9 +199,12 @@ class MainWindow: PanelWindow, NSWindowDelegate {
       fileName: fileName,
       isPresented: Binding(
         get: { isPresented },
-        set: { newValue in
+        set: { [weak self] newValue in
           isPresented = newValue
           if !newValue {
+            // Clear flag when dialog closes
+            self?.isHotkeyDialogActive = false
+            
             DispatchQueue.main.async {
               dialogWindow.close()
               if wasCancelled {

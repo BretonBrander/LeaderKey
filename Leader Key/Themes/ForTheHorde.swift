@@ -53,13 +53,15 @@ enum ForTheHorde {
       makeKeyAndOrderFront(nil)
       alphaValue = 0
 
-      NSAnimationContext.runAnimationGroup(
-        { context in
-          context.duration = ForTheHorde.rotationDuration
+      AnimationGate.performAppKit(
+        reduceMotion: AnimationGate.systemReduceMotion,
+        windowVisible: true,
+        duration: ForTheHorde.rotationDuration,
+        animations: { context in
           context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-          animator().alphaValue = 1.0
+          self.animator().alphaValue = 1.0
         },
-        completionHandler: {
+        completion: {
           after?()
         })
     }
@@ -69,19 +71,21 @@ enum ForTheHorde {
       animationState.isShowing = false
 
       // Custom fade out animation to match the show animation
-      NSAnimationContext.runAnimationGroup(
-        { context in
-          context.duration = ForTheHorde.rotationDuration
+      AnimationGate.performAppKit(
+        reduceMotion: AnimationGate.systemReduceMotion,
+        windowVisible: true,
+        duration: ForTheHorde.rotationDuration,
+        animations: { context in
           context.timingFunction = CAMediaTimingFunction(name: .easeIn)
-          animator().alphaValue = 0.0
+          self.animator().alphaValue = 0.0
         },
-        completionHandler: {
+        completion: {
           super.hide(after: after)
         })
     }
 
     override func notFound() {
-      shake()
+      shake(reduceMotion: AnimationGate.systemReduceMotion)
     }
 
     override func cheatsheetOrigin(cheatsheetSize: NSSize) -> NSPoint {

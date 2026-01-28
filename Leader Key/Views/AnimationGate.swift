@@ -1,6 +1,12 @@
 import SwiftUI
+import AppKit
 
 enum AnimationGate {
+  /// System-wide reduce motion accessibility setting
+  static var systemReduceMotion: Bool {
+    NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+  }
+  
   static func resolved(_ animation: Animation?, reduceMotion: Bool, isEnabled: Bool = true) -> Animation? {
     guard isEnabled, !reduceMotion else { return nil }
     return animation
@@ -22,6 +28,45 @@ enum AnimationGate {
     }
     withAnimation(animation, updates)
   }
+  
+  /// Execute AppKit animation with reduce motion and window visibility checks
+  /// - Parameters:
+  ///   - enabled: Whether animation is enabled (default: true)
+  ///   - reduceMotion: Whether reduce motion is active
+  ///   - windowVisible: Whether the window is visible (default: true)
+  ///   - duration: Animation duration
+  ///   - animations: Animation closure receiving NSAnimationContext
+  ///   - completion: Optional completion handler
+  static func performAppKit(
+    enabled: Bool = true,
+    reduceMotion: Bool,
+    windowVisible: Bool = true,
+    duration: TimeInterval,
+    animations: @escaping (NSAnimationContext) -> Void,
+    completion: (() -> Void)? = nil
+  ) {
+    // If gated, execute immediately without animation
+    guard enabled, !reduceMotion, windowVisible else {
+      // Directly apply final state
+      animations(NSAnimationContext.current)
+      completion?()
+      return
+    }
+    
+    // Run with animation
+    NSAnimationContext.runAnimationGroup(
+      { context in
+        context.duration = duration
+        context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        animations(context)
+      },
+      completionHandler: completion
+    )
+  }
+}
+
+extension Notification.Name {
+  static let leaderKeyStopAnimations = Notification.Name("LeaderKeyStopAnimations")
 }
 
 private struct LeaderKeyAnimationsEnabledKey: EnvironmentKey {

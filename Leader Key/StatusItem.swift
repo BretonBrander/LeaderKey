@@ -19,6 +19,7 @@ class StatusItem {
 
   var handlePreferences: (() -> Void)?
   var handleAbout: (() -> Void)?
+  var handleActivate: (() -> Void)?
   var handleReloadConfig: (() -> Void)?
   var handleRevealConfig: (() -> Void)?
   var handleCheckForUpdates: (() -> Void)?
@@ -53,6 +54,12 @@ class StatusItem {
       title: "Settings…", action: #selector(showPreferences), keyEquivalent: ",")
     preferencesItem.target = self
     menu.addItem(preferencesItem)
+
+    // Show Leader Key
+    let showItem = NSMenuItem(
+      title: "Show Leader Key", action: #selector(showLeaderKey), keyEquivalent: "")
+    showItem.target = self
+    menu.addItem(showItem)
 
     menu.addItem(NSMenuItem.separator())
 
@@ -115,6 +122,10 @@ class StatusItem {
 
   @objc func showPreferences() {
     handlePreferences?()
+  }
+
+  @objc func showLeaderKey() {
+    handleActivate?()
   }
 
   @objc func showAbout() {

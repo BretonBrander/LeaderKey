@@ -37,20 +37,20 @@ enum Cheater {
 
       makeKeyAndOrderFront(nil)
 
-      fadeInAndUp {
+      fade(direction: .in, slide: .up(distance: 50), reduceMotion: AnimationGate.systemReduceMotion) {
         after?()
       }
     }
 
     override func hide(after: (() -> Void)?) {
-      fadeOutAndDown {
+      fade(direction: .out, slide: .down(distance: 50), reduceMotion: AnimationGate.systemReduceMotion) {
         self.close()
         after?()
       }
     }
 
     override func notFound() {
-      shake()
+      shake(reduceMotion: AnimationGate.systemReduceMotion)
     }
   }
 }

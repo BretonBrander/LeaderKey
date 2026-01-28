@@ -46,6 +46,7 @@ final class UserState: ObservableObject {
     isShowingRefreshState = false
     selectedIndex = nil
     selectionHistory = []
+    isDraggingFile = false
   }
 
   func navigateToGroup(_ group: Group) {

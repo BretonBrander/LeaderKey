@@ -66,6 +66,9 @@ class AppDelegate: NSObject, NSApplicationDelegate,
     statusItem.handlePreferences = {
       self.showSettings()
     }
+    statusItem.handleActivate = {
+      self.activate()
+    }
     statusItem.handleAbout = {
       NSApp.orderFrontStandardAboutPanel(nil)
     }
@@ -106,6 +109,10 @@ class AppDelegate: NSObject, NSApplicationDelegate,
         self?.registerGlobalShortcuts()
       }
     }
+  }
+
+  func applicationDidBecomeActive(_ notification: Notification) {
+    registerGlobalShortcuts()
   }
 
   func activate() {

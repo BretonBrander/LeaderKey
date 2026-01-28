@@ -37,19 +37,19 @@ enum Mini {
 
       makeKeyAndOrderFront(nil)
 
-      fadeIn {
+      fade(direction: .in, reduceMotion: AnimationGate.systemReduceMotion) {
         after?()
       }
     }
 
     override func hide(after: (() -> Void)? = nil) {
-      fadeOut {
+      fade(direction: .out, reduceMotion: AnimationGate.systemReduceMotion) {
         super.hide(after: after)
       }
     }
 
     override func notFound() {
-      shake()
+      shake(reduceMotion: AnimationGate.systemReduceMotion)
     }
 
     override func cheatsheetOrigin(cheatsheetSize: NSSize) -> NSPoint {

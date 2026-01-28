@@ -54,7 +54,7 @@ enum LiquidGlass {
 
       makeKeyAndOrderFront(nil)
 
-      fadeInAndUp {
+      fade(direction: .in, slide: .up(distance: 50), reduceMotion: AnimationGate.systemReduceMotion) {
         after?()
       }
 
@@ -63,14 +63,14 @@ enum LiquidGlass {
     }
 
     override func hide(after: (() -> Void)? = nil) {
-      fadeOutAndDown {
+      fade(direction: .out, slide: .down(distance: 50), reduceMotion: AnimationGate.systemReduceMotion) {
         self.close()
         after?()
       }
     }
 
     override func notFound() {
-      shake()
+      shake(reduceMotion: AnimationGate.systemReduceMotion)
     }
   }
 
@@ -151,8 +151,8 @@ enum LiquidGlass {
 
   struct PulseGlow: View {
     let isActive: Bool
-    @State private var pulseOpacity: Double = 0.06
-    @State private var pulseScale: CGFloat = 1.0
+    private let pulseOpacity: Double = 0.12
+    private let pulseScale: CGFloat = 1.0
 
     var body: some View {
       RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -160,22 +160,6 @@ enum LiquidGlass {
         .blur(radius: 10)
         .scaleEffect(pulseScale)
         .opacity(isActive ? 1 : 0)
-        .leaderKeyRepeatForever(
-          Animation.easeInOut(duration: 2.0).repeatForever(autoreverses: true),
-          isEnabled: isActive,
-          onStart: {
-            pulseOpacity = 0.06
-            pulseScale = 1.0
-          },
-          onAnimate: {
-            pulseOpacity = 0.15
-            pulseScale = 1.08
-          },
-          onStop: {
-            pulseOpacity = 0.06
-            pulseScale = 1.0
-          }
-        )
     }
   }
 
@@ -433,7 +417,6 @@ enum LiquidGlass {
     @EnvironmentObject var userState: UserState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var contentHeight: CGFloat = 0
-    @State private var headerVisible = false
     @State private var animationTrigger = UUID()
     @State private var navigationDirection: NavigationDirection = .neutral
     @State private var previousPathCount: Int = 0
@@ -483,6 +466,7 @@ enum LiquidGlass {
             }
           )
         }
+        .scrollIndicators(.hidden)
         .onChange(of: userState.selectedIndex) { newIndex in
           if let index = newIndex {
             AnimationGate.perform(AnimationPresets.selection, reduceMotion: reduceMotion) {
@@ -492,18 +476,23 @@ enum LiquidGlass {
         }
       }
       .frame(width: Self.preferredWidth)
-      .frame(height: min(contentHeight, maxHeight))
+      .frame(height: max(200, min(contentHeight, maxHeight)))
       .background {
-        GlossyGlassBackground(cornerRadius: LiquidGlass.cornerRadius)
+        GlossyGlassBackground(
+          cornerRadius: LiquidGlass.cornerRadius,
+          material: .hudWindow
+        )
       }
       .onPreferenceChange(HeightPreferenceKey.self) { height in
-        contentHeight = height
+        let clamped = min(height, maxHeight)
+        let scale = NSScreen.main?.backingScaleFactor ?? 2
+        let snapped = (clamped * scale).rounded() / scale
+        if abs(snapped - contentHeight) > 1 {
+          contentHeight = snapped
+        }
       }
       .onReceive(NotificationCenter.default.publisher(for: LiquidGlass.windowDidShowNotification)) { _ in
         triggerEntryAnimation(direction: .neutral)
-      }
-      .onDisappear {
-        headerVisible = false
       }
       .onChange(of: navigationKey) { _ in
         let newPathCount = userState.navigationPath.count
@@ -521,16 +510,8 @@ enum LiquidGlass {
     }
 
     private func triggerEntryAnimation(direction: NavigationDirection) {
-      // Update direction for rows
       navigationDirection = direction
-      // Reset header visibility to trigger slide animation
-      headerVisible = false
-      // Generate new trigger to animate rows
       animationTrigger = UUID()
-      // Animate header in immediately with spring animation
-      AnimationGate.perform(.spring(response: 0.3, dampingFraction: 0.75), reduceMotion: reduceMotion) {
-        headerVisible = true
-      }
     }
 
     @ViewBuilder
@@ -559,27 +540,29 @@ enum LiquidGlass {
     private func actionRow(at index: Int) -> some View {
       let item = actions[index]
       let isSelected = userState.selectedIndex == index
-      StaggeredEntry(index: index, animationTrigger: animationTrigger, direction: navigationDirection) {
-        switch item {
-        case .action(let action):
-          ActionRow(
-            action: action,
-            indent: 0,
-            isSelected: isSelected,
-            onTap: { userState.onItemTapped?(.action(action)) },
-            onHover: { hovering in if hovering { userState.selectedIndex = index } }
-          )
-        case .group(let group):
-          GroupRow(
-            group: group,
-            indent: 0,
-            isSelected: isSelected,
-            onTap: { userState.onItemTapped?(.group(group)) },
-            onHover: { hovering in if hovering { userState.selectedIndex = index } }
-          )
+      return AnyView(
+        StaggeredEntry(index: index, animationTrigger: animationTrigger, direction: navigationDirection) {
+          switch item {
+          case .action(let action):
+            ActionRow(
+              action: action,
+              indent: 0,
+              isSelected: isSelected,
+              onTap: { userState.onItemTapped?(.action(action)) },
+              onHover: { hovering in if hovering { userState.selectedIndex = index } }
+            )
+          case .group(let group):
+            GroupRow(
+              group: group,
+              indent: 0,
+              isSelected: isSelected,
+              onTap: { userState.onItemTapped?(.group(group)) },
+              onHover: { hovering in if hovering { userState.selectedIndex = index } }
+            )
+          }
         }
-      }
-      .id("\(navigationKey)-\(index)")
+        .id("\(navigationKey)-\(index)")
+      )
     }
   }
 }
