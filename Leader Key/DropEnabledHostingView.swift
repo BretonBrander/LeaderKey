@@ -7,6 +7,8 @@ class DropEnabledHostingView<Content: View>: NSHostingView<Content> {
   var onFileDrop: (([URL]) -> Void)?
   var onDragStateChange: ((Bool) -> Void)?
   var onDragPositionChange: ((NSPoint) -> Void)?
+  private var lastDragUpdateTime: CFTimeInterval = 0
+  private let dragUpdateInterval: CFTimeInterval = 1.0 / 30.0
   
   override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
     print("📦 HostingView draggingEntered")
@@ -15,6 +17,7 @@ class DropEnabledHostingView<Content: View>: NSHostingView<Content> {
     if sender.draggingPasteboard.canReadObject(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) {
       print("📦 HostingView: Has file URLs, accepting drag")
       onDragStateChange?(true)
+      lastDragUpdateTime = 0
       // Report initial drag position
       let location = convert(sender.draggingLocation, from: nil)
       // Convert Y coordinate: AppKit uses bottom-left origin, but we need to flip for SwiftUI
@@ -29,6 +32,11 @@ class DropEnabledHostingView<Content: View>: NSHostingView<Content> {
   }
   
   override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+    let now = CFAbsoluteTimeGetCurrent()
+    if now - lastDragUpdateTime < dragUpdateInterval {
+      return .copy
+    }
+    lastDragUpdateTime = now
     // Report drag position updates
     // Convert from window coordinates to view coordinates
     let location = convert(sender.draggingLocation, from: nil)

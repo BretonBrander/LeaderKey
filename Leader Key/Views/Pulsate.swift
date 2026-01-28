@@ -9,8 +9,6 @@ import Foundation
 import SwiftUI
 
 public struct Pulsate: ViewModifier {
-  @State var scale: Bool = true
-
   static let singleDurationS = 0.15
 
   let duration: TimeInterval
@@ -22,12 +20,8 @@ public struct Pulsate: ViewModifier {
   }
 
   public func body(content: Content) -> some View {
-    content.onAppear {
-      withAnimation(Animation.easeInOut(duration: duration).repeatForever(autoreverses: true)) {
-        scale.toggle()
-      }
-    }
-    .scaleEffect(scale ? 1 : targetScale)
+    content
+      .scaleEffect(1.0)
   }
 }
 

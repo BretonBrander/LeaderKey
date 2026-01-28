@@ -143,7 +143,7 @@ enum ConfigEditorUI {
     menu.addItem(iconItem)
 
     // Add bulk Open With option if any selected items support it
-    if let onBulkSetOpenWith = onBulkSetOpenWith, openWithCount > 0 {
+    if onBulkSetOpenWith != nil, openWithCount > 0 {
       let title = openWithCount == count
         ? "Set Open With App for \(count) Items…"
         : "Set Open With App for \(openWithCount) of \(count) Items…"

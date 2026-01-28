@@ -17,9 +17,11 @@ enum GlassEffects {
 
 struct GlossyGlassBackground: View {
   let cornerRadius: CGFloat
-  @State private var shimmerOffset: CGFloat = -0.3
-  @State private var breatheScale: CGFloat = 1.0
-  @State private var breatheOpacity: Double = 0.7
+  let material: NSVisualEffectView.Material
+  let useSimpleBackground: Bool
+  @Environment(\.leaderKeyAnimationsEnabled) private var animationsEnabled
+  private let breatheOpacity: Double = 0.7
+  private let breatheScale: CGFloat = 1.0
 
   // Observe custom color settings for reactivity
   @Default(.useCustomColors) private var useCustomColor
@@ -35,104 +37,89 @@ struct GlossyGlassBackground: View {
     return Color(nsColor)
   }
 
-  init(cornerRadius: CGFloat = GlassEffects.cornerRadius) {
+  init(
+    cornerRadius: CGFloat = GlassEffects.cornerRadius,
+    material: NSVisualEffectView.Material = .hudWindow,
+    useSimpleBackground: Bool = false
+  ) {
     self.cornerRadius = cornerRadius
+    self.material = material
+    self.useSimpleBackground = useSimpleBackground
   }
 
   var body: some View {
     ZStack {
-      // Base layer - AppKit blur (independent from tint)
-      VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
-        .clipShape(GlassEffects.rect(cornerRadius))
-
-      // Tint overlay - adjustable independently from blur
-      GlassEffects.rect(cornerRadius)
-        .fill(Color.black.opacity(0.08))
-
-      // Custom background color tint (when enabled)
-      if let bgColor = backgroundTint {
+      if useSimpleBackground {
         GlassEffects.rect(cornerRadius)
-          .fill(bgColor.opacity(0.2))
-      }
+          .fill((backgroundTint ?? Color.black).opacity(0.18))
+      } else {
+        // Base layer - AppKit blur (independent from tint)
+        VisualEffectView(
+          material: animationsEnabled ? material : .underWindowBackground,
+          blendingMode: .behindWindow,
+          state: animationsEnabled ? .active : .inactive
+        )
+          .clipShape(GlassEffects.rect(cornerRadius))
 
-      // Strong specular highlight at top (light hitting glass surface)
-      GlassEffects.rect(cornerRadius)
-        .fill(
-          LinearGradient(
-            stops: [
-              .init(color: .white.opacity(0.25), location: 0),
-              .init(color: .white.opacity(0.2), location: 0.08),
-              .init(color: .white.opacity(0.05), location: 0.2),
-              .init(color: .clear, location: 0.35)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
+        // Tint overlay - adjustable independently from blur
+        GlassEffects.rect(cornerRadius)
+          .fill(Color.black.opacity(0.08))
+
+        // Custom background color tint (when enabled)
+        if let bgColor = backgroundTint {
+          GlassEffects.rect(cornerRadius)
+            .fill(bgColor.opacity(0.2))
+        }
+
+        // Strong specular highlight at top (light hitting glass surface)
+        GlassEffects.rect(cornerRadius)
+          .fill(
+            LinearGradient(
+              stops: [
+                .init(color: .white.opacity(0.25), location: 0),
+                .init(color: .white.opacity(0.2), location: 0.08),
+                .init(color: .white.opacity(0.05), location: 0.2),
+                .init(color: .clear, location: 0.35)
+              ],
+              startPoint: .top,
+              endPoint: .bottom
+            )
           )
-        )
 
-      // Subtle inner shadow for depth
-      GlassEffects.rect(cornerRadius)
-        .stroke(
-          LinearGradient(
-            stops: [
-              .init(color: .clear, location: 0),
-              .init(color: .black.opacity(0.05), location: 0.6),
-              .init(color: .black.opacity(0.08), location: 1)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-          ),
-          lineWidth: 1.5
-        )
-        .blur(radius: 1.5)
-        .padding(1)
-
-      // Breathing edge glow (animated opacity)
-      GlassEffects.rect(cornerRadius)
-        .stroke(
-          LinearGradient(
-            stops: [
-              .init(color: .white.opacity(breatheOpacity), location: 0),
-              .init(color: .white.opacity(breatheOpacity * 0.5), location: 0.2),
-              .init(color: .white.opacity(breatheOpacity * 0.2), location: 0.5),
-              .init(color: .white.opacity(breatheOpacity * 0.3), location: 0.8),
-              .init(color: .white.opacity(breatheOpacity * 0.4), location: 1)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-          ),
-          lineWidth: 1.5
-        )
-        .scaleEffect(breatheScale)
-
-      // Fast shimmer sweep on appear
-      GlassEffects.rect(cornerRadius)
-        .fill(
-          LinearGradient(
-            stops: [
-              .init(color: .clear, location: max(0, shimmerOffset)),
-              .init(color: .white.opacity(0.2), location: min(1, max(0, shimmerOffset + 0.03))),
-              .init(color: .white.opacity(0.12), location: min(1, max(0, shimmerOffset + 0.08))),
-              .init(color: .clear, location: min(1, shimmerOffset + 0.12))
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
+        // Subtle inner shadow for depth
+        GlassEffects.rect(cornerRadius)
+          .stroke(
+            LinearGradient(
+              stops: [
+                .init(color: .clear, location: 0),
+                .init(color: .black.opacity(0.05), location: 0.6),
+                .init(color: .black.opacity(0.08), location: 1)
+              ],
+              startPoint: .top,
+              endPoint: .bottom
+            ),
+            lineWidth: 1.5
           )
-        )
-    }
-    .onAppear {
-      // Quick initial shimmer
-      withAnimation(.easeOut(duration: 0.6)) {
-        shimmerOffset = 1.2
-      }
+          .blur(radius: 1.5)
+          .padding(1)
 
-      // Subtle breathing animation for border
-      withAnimation(
-        .easeInOut(duration: 2.5)
-        .repeatForever(autoreverses: true)
-      ) {
-        breatheOpacity = 0.5
-        breatheScale = 1.002
+        // Breathing edge glow (static)
+        GlassEffects.rect(cornerRadius)
+          .stroke(
+            LinearGradient(
+              stops: [
+                .init(color: .white.opacity(breatheOpacity), location: 0),
+                .init(color: .white.opacity(breatheOpacity * 0.5), location: 0.2),
+                .init(color: .white.opacity(breatheOpacity * 0.2), location: 0.5),
+                .init(color: .white.opacity(breatheOpacity * 0.3), location: 0.8),
+                .init(color: .white.opacity(breatheOpacity * 0.4), location: 1)
+              ],
+              startPoint: .top,
+              endPoint: .bottom
+            ),
+            lineWidth: 1.5
+          )
+          .scaleEffect(breatheScale)
       }
     }
   }
@@ -167,4 +154,3 @@ struct HeightPreferenceKey: PreferenceKey {
     value = nextValue()
   }
 }
-

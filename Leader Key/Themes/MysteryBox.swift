@@ -11,7 +11,7 @@ enum MysteryBox {
         controller: controller,
         contentRect: NSRect(x: 0, y: 0, width: MysteryBox.size, height: MysteryBox.size))
 
-      let view = MainView()
+      let view = AnimationEnabledProvider(content: MainView())
         .environmentObject(self.controller.userState)
         .environmentObject(self.controller.userConfig)
       
@@ -42,19 +42,19 @@ enum MysteryBox {
 
       makeKeyAndOrderFront(nil)
 
-      fadeInAndUp {
+      fade(direction: .in, slide: .up(distance: 50), reduceMotion: AnimationGate.systemReduceMotion) {
         after?()
       }
     }
 
     override func hide(after: (() -> Void)? = nil) {
-      fadeOutAndDown {
+      fade(direction: .out, slide: .down(distance: 50), reduceMotion: AnimationGate.systemReduceMotion) {
         super.hide(after: after)
       }
     }
 
     override func notFound() {
-      shake()
+      shake(reduceMotion: AnimationGate.systemReduceMotion)
     }
 
     override func cheatsheetOrigin(cheatsheetSize: NSSize) -> NSPoint {

@@ -24,6 +24,7 @@ struct StaggeredEntry<Content: View>: View {
   let animationTrigger: UUID
   let direction: NavigationDirection
   let content: Content
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @State private var isVisible = false
 
   init(index: Int, animationTrigger: UUID, direction: NavigationDirection, @ViewBuilder content: () -> Content) {
@@ -62,7 +63,7 @@ struct StaggeredEntry<Content: View>: View {
       isVisible = false
     }
     let delay = Double(index) * AnimationPresets.staggerDelay
-    withAnimation(AnimationPresets.rowEntry.delay(delay)) {
+    AnimationGate.perform(AnimationPresets.rowEntry.delay(delay), reduceMotion: reduceMotion) {
       isVisible = true
     }
   }
@@ -81,4 +82,3 @@ struct StaggeredEntry<Content: View>: View {
       }
   }
 }
-

@@ -63,6 +63,7 @@ class Controller {
 
   func show() {
     Events.send(.willActivate)
+    userState.isWindowVisible = true
 
     let screen = Defaults[.screen].getNSScreen() ?? NSScreen()
     window.show(on: screen) {
@@ -84,11 +85,20 @@ class Controller {
 
   func hide(afterClose: (() -> Void)? = nil) {
     Events.send(.willDeactivate)
+    userState.isWindowVisible = false
+    // Reset drag state immediately to ensure animations stop before window closes
+    userState.isDraggingFile = false
+    NotificationCenter.default.post(name: .leaderKeyStopAnimations, object: nil)
 
-    window.hide {
-      self.clear()
-      afterClose?()
-      Events.send(.didDeactivate)
+    // Use async to give SwiftUI time to process state changes (isWindowVisible = false)
+    // before we start hiding. This ensures repeating animations receive the environment
+    // change and stop properly via leaderKeyRepeatForever's onChange handler.
+    DispatchQueue.main.async {
+      self.window.hide {
+        self.clear()
+        afterClose?()
+        Events.send(.didDeactivate)
+      }
     }
 
     cheatsheetWindow?.orderOut(nil)

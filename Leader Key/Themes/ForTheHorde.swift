@@ -18,7 +18,7 @@ enum ForTheHorde {
       isOpaque = false
       hasShadow = false
 
-      let view = MainView()
+      let view = AnimationEnabledProvider(content: MainView())
         .environmentObject(self.controller.userState)
         .environmentObject(self.controller.userConfig)
         .environmentObject(animationState)
@@ -53,13 +53,15 @@ enum ForTheHorde {
       makeKeyAndOrderFront(nil)
       alphaValue = 0
 
-      NSAnimationContext.runAnimationGroup(
-        { context in
-          context.duration = ForTheHorde.rotationDuration
+      AnimationGate.performAppKit(
+        reduceMotion: AnimationGate.systemReduceMotion,
+        windowVisible: true,
+        duration: ForTheHorde.rotationDuration,
+        animations: { context in
           context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-          animator().alphaValue = 1.0
+          self.animator().alphaValue = 1.0
         },
-        completionHandler: {
+        completion: {
           after?()
         })
     }
@@ -69,19 +71,21 @@ enum ForTheHorde {
       animationState.isShowing = false
 
       // Custom fade out animation to match the show animation
-      NSAnimationContext.runAnimationGroup(
-        { context in
-          context.duration = ForTheHorde.rotationDuration
+      AnimationGate.performAppKit(
+        reduceMotion: AnimationGate.systemReduceMotion,
+        windowVisible: true,
+        duration: ForTheHorde.rotationDuration,
+        animations: { context in
           context.timingFunction = CAMediaTimingFunction(name: .easeIn)
-          animator().alphaValue = 0.0
+          self.animator().alphaValue = 0.0
         },
-        completionHandler: {
+        completion: {
           super.hide(after: after)
         })
     }
 
     override func notFound() {
-      shake()
+      shake(reduceMotion: AnimationGate.systemReduceMotion)
     }
 
     override func cheatsheetOrigin(cheatsheetSize: NSSize) -> NSPoint {
@@ -99,6 +103,7 @@ enum ForTheHorde {
   struct MainView: View {
     @EnvironmentObject var userState: UserState
     @EnvironmentObject var animationState: AnimationState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var bgRotation: Double = -15
     @State private var fgRotation: Double = 15
     @State private var scale: CGFloat = 0.95
@@ -135,14 +140,14 @@ enum ForTheHorde {
       .onChange(of: animationState.isShowing) { newValue in
         if newValue {
           // Animate rotations and scale to 100% when showing
-          withAnimation(.easeOut(duration: ForTheHorde.rotationDuration)) {
+          AnimationGate.perform(.easeOut(duration: ForTheHorde.rotationDuration), reduceMotion: reduceMotion) {
             bgRotation = 0
             fgRotation = 0
             scale = 1.0
           }
         } else {
           // Animate rotations the other way and scale down when hiding
-          withAnimation(.easeIn(duration: ForTheHorde.rotationDuration)) {
+          AnimationGate.perform(.easeIn(duration: ForTheHorde.rotationDuration), reduceMotion: reduceMotion) {
             bgRotation = 15
             fgRotation = -15
             scale = 0.95
