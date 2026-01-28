@@ -152,8 +152,12 @@ enum Cheatsheet {
 
   struct CheatsheetView: SwiftUI.View {
     @EnvironmentObject var userState: UserState
+    @EnvironmentObject var userConfig: UserConfig
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Default(.showFavoritesInCheatsheet) private var showFavoritesInCheatsheet
     @State private var contentHeight: CGFloat = 0
+    @State private var hoveredFavoriteIndex: Int? = nil
+    @StateObject private var favoritesProvider = FavoritesProvider()
 
     var maxHeight: CGFloat {
       if let screen = NSScreen.main {
@@ -216,6 +220,8 @@ enum Cheatsheet {
                 .id(index)
               }
             }
+
+            favoritesSection
             
             // Show drop zone when dragging
             if userState.isDraggingFile {
@@ -246,16 +252,64 @@ enum Cheatsheet {
       .background(
         VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
       )
+      .onAppear {
+        refreshFavorites()
+      }
+      .onChange(of: userConfig.root) { _ in
+        refreshFavorites()
+      }
+      .onChange(of: showFavoritesInCheatsheet) { isEnabled in
+        if isEnabled {
+          refreshFavorites()
+        } else {
+          favoritesProvider.clear()
+        }
+      }
       .onPreferenceChange(HeightPreferenceKey.self) { height in
         self.contentHeight = height
       }
     }
   }
 
+  private extension CheatsheetView {
+    @ViewBuilder
+    var favoritesSection: some View {
+      guard showFavoritesInCheatsheet, !favoritesProvider.favorites.isEmpty else { return }
 
-  static func createWindow(for userState: UserState) -> NSWindow {
+      Divider()
+        .padding(.top, 8)
+
+      Text("Favorites")
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .padding(.bottom, 4)
+
+      ForEach(favoritesProvider.favorites.indices, id: \.self) { index in
+        let action = favoritesProvider.favorites[index]
+        Cheatsheet.ActionRow(
+          action: action,
+          indent: 0,
+          isSelected: hoveredFavoriteIndex == index,
+          onTap: { userState.onItemTapped?(.action(action)) },
+          onHover: { hovering in
+            hoveredFavoriteIndex = hovering ? index : nil
+          }
+        )
+      }
+    }
+
+    func refreshFavorites() {
+      guard showFavoritesInCheatsheet else { return }
+      let existingValues = userConfig.actionValues(for: [.application, .folder, .file])
+      favoritesProvider.refresh(excluding: existingValues)
+    }
+  }
+
+
+  static func createWindow(for userState: UserState, userConfig: UserConfig) -> NSWindow {
     let view = AnimationEnabledProvider(content: CheatsheetView())
       .environmentObject(userState)
+      .environmentObject(userConfig)
     let controller = NSHostingController(rootView: view)
     let cheatsheet = PanelWindow(
       contentRect: NSRect(x: 0, y: 0, width: 580, height: 640)
@@ -269,5 +323,6 @@ struct CheatsheetView_Previews: PreviewProvider {
   static var previews: some View {
     Cheatsheet.CheatsheetView()
       .environmentObject(UserState(userConfig: UserConfig()))
+      .environmentObject(UserConfig())
   }
 }

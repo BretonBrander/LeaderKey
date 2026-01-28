@@ -58,7 +58,7 @@ class Controller {
       self?.handleItemTapped(item)
     }
 
-    self.cheatsheetWindow = Cheatsheet.createWindow(for: userState)
+    self.cheatsheetWindow = Cheatsheet.createWindow(for: userState, userConfig: userConfig)
   }
 
   func show() {
